@@ -75,7 +75,7 @@ Web interfejs je namenjen lokalnoj mreži; ne izlagati ga internetu.
 | `<base>/command/brightness` | → sat | `0`–`15` (važi do sledeće smene dan/noć) |
 | `<base>/command/message` | → sat | tekst ili `{"text":"...","seconds":60}`; prazno = ukloni |
 | `<base>/command/display_mode` | → sat | `normal`, `off`, `dnd` |
-| `<base>/command/page` | → sat | `time`, `date`, `weekday`, `messages` |
+| `<base>/command/page` | → sat | `time`, `date`, `weekday`, `messages`, `sensor` |
 | `<base>/command/test`, `<base>/command/restart` | → sat | bilo koji sadržaj |
 
 ## Serijska konzola (oporavak bez mreže)

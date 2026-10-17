@@ -158,7 +158,8 @@ static void handleCommand(const char* cmd, char* p) {
     if (!displayModeFromKey(p, m)) goto bad;
     displaySetMode(m);
   } else if (!strcmp(cmd, "page")) {
-    static const char* const PAGES[PAGE_COUNT] = {"time", "date", "weekday", "messages"};
+    static const char* const PAGES[] = {"time", "date", "weekday", "messages", "sensor"};
+    static_assert(sizeof(PAGES) / sizeof(PAGES[0]) == PAGE_COUNT, "MQTT nazivi stranica != PageId");
     uint8_t i = 0;
     while (i < PAGE_COUNT && strcmp(p, PAGES[i])) i++;
     if (i == PAGE_COUNT) goto bad;
@@ -279,6 +280,7 @@ static void buildEntity(uint8_t i, JsonDocument& d) {
       ops.add("date");
       ops.add("weekday");
       ops.add("messages");
+      ops.add("sensor");
       d["ic"] = "mdi:page-next-outline";
       break;
     }
