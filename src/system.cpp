@@ -14,6 +14,7 @@ static char bootHostname[sizeof(cfg.hostname)];
 
 void systemRestart(uint32_t delayMs) {
   LOG("Restart za %lu ms", (unsigned long)delayMs);
+  mqttGoOffline();
   restartAt = millis() + delayMs;
   restartPending = true;
 }

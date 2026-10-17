@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <LittleFS.h>
 
 #include <memory>
 
@@ -13,6 +14,7 @@
 #include "generated/web_index.h"
 #include "mqtt.h"
 #include "net.h"
+#include "ota.h"
 #include "sensors.h"
 #include "system.h"
 #include "text.h"
@@ -23,6 +25,11 @@ constexpr size_t MAX_RENDER_TEXT = 64; // pregled fonta
 constexpr uint16_t MAX_RENDER_COLS = 400;
 
 static ESP8266WebServer server(80);
+
+// stanje web OTA (upload callback se poziva po delovima, pa završni handler)
+static bool otaActive = false;
+static bool otaDone = false;
+static char otaErr[96];
 
 // ---------------------------------------------------------------- pomoćne
 
@@ -89,6 +96,7 @@ static void handleStatus() {
   if (!authorized()) return;
   JsonDocument doc;
   doc["fw"] = FW_VERSION;
+  doc["build"] = FW_BUILD;
 
   if (timeValid()) {
     time_t now = time(nullptr);
@@ -157,6 +165,7 @@ static void handleStatus() {
   JsonObject s = doc["sys"].to<JsonObject>();
   s["heap"] = ESP.getFreeHeap();
   s["heapMin"] = diagHeapMin();
+  s["heapBoot"] = diagHeapBoot();
   s["maxBlock"] = ESP.getMaxFreeBlockSize();
   s["frag"] = ESP.getHeapFragmentation();
   s["uptime"] = diagUptimeS();
@@ -169,6 +178,14 @@ static void handleStatus() {
   s["flash"] = ESP.getFlashChipRealSize();
   s["sketch"] = ESP.getSketchSize();
   s["sketchFree"] = ESP.getFreeSketchSpace();
+  s["otaMax"] = otaMaxSize();
+  s["otaNet"] = otaNetworkEnabled();
+  s["otaRssi"] = OTA_MIN_RSSI;
+  FSInfo fsi;
+  if (LittleFS.info(fsi)) {
+    s["fsUsed"] = fsi.usedBytes;
+    s["fsTotal"] = fsi.totalBytes;
+  }
   sendJson(200, doc);
 }
 
@@ -301,6 +318,83 @@ static void handleMeta() {
   sendJson(200, doc);
 }
 
+// delovi fajla stižu redom; Updater piše u slobodan prostor, a bootloader zamenjuje
+// firmware tek posle uspešnog Update.end(). Prekid ostavlja postojeći firmware.
+static void handleUpdateUpload() {
+  HTTPUpload& up = server.upload();
+  switch (up.status) {
+    case UPLOAD_FILE_START: {
+      otaActive = otaDone = false;
+      otaErr[0] = '\0';
+      if (cfg.adminPass[0] && !server.authenticate("admin", cfg.adminPass)) {
+        strlcpySafe(otaErr, "potrebna je prijava", sizeof(otaErr));
+        return;
+      }
+      size_t size = (size_t)server.arg("size").toInt();
+      if (!otaPrecheck(size, otaErr, sizeof(otaErr))) {
+        LOG("OTA (web): odbijeno — %s", otaErr);
+        return;
+      }
+      LOG("OTA (web): početak, %s, %u B", up.filename.c_str(), (unsigned)size);
+      mqttGoOffline();
+      otaWebStart();
+      displayHold("OTA");
+      if (!Update.begin(size)) {
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("početak nije uspeo: %s"), Update.getErrorString().c_str());
+        displayResume();
+        return;
+      }
+      otaActive = true;
+      break;
+    }
+    case UPLOAD_FILE_WRITE:
+      if (!otaActive) return;
+      if (Update.write(up.buf, up.currentSize) != up.currentSize) {
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("upis nije uspeo: %s"), Update.getErrorString().c_str());
+        Update.end(false);
+        otaActive = false;
+        displayResume();
+        return;
+      }
+      otaWebProgress(Update.progress(), Update.size());
+      break;
+    case UPLOAD_FILE_END:
+      if (!otaActive) return;
+      otaActive = false;
+      // end(false): veličina mora tačno da odgovara najavljenoj (zaštita od skraćenog fajla)
+      if (Update.remaining()) {
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("fajl je kraći od najavljene veličine (nedostaje %u B)"),
+                   (unsigned)Update.remaining());
+        Update.end(false);
+        displayResume();
+      } else if (Update.end(false)) {
+        otaDone = true;
+        LOG("OTA (web): uspešno, %u B", (unsigned)up.totalSize);
+        displayHold("OTA OK");
+      } else {
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("provera nije uspela: %s"), Update.getErrorString().c_str());
+        displayResume();
+      }
+      break;
+    case UPLOAD_FILE_ABORTED:
+      if (otaActive) Update.end(false);
+      otaActive = false;
+      strlcpySafe(otaErr, "prenos je prekinut", sizeof(otaErr));
+      displayResume();
+      break;
+  }
+}
+
+static void handleUpdateDone() {
+  if (!authorized()) return;
+  if (!otaDone) {
+    LOG("OTA (web): neuspešno — %s; postojeći firmware ostaje", otaErr[0] ? otaErr : "nepoznata greška");
+    return sendError(400, otaErr[0] ? otaErr : "ažuriranje nije uspelo");
+  }
+  sendOk();
+  systemRestart(1000);
+}
+
 static void handleNotFound() {
   // captive portal: svaki nepoznat zahtev na pristupnoj tački vodi na podešavanje
   if (portalActive() && server.hostHeader() != portalIp()) {
@@ -322,6 +416,7 @@ void webBegin() {
   server.on("/api/scan", HTTP_GET, handleScan);
   server.on("/api/render", HTTP_GET, handleRender);
   server.on("/api/meta", HTTP_GET, handleMeta);
+  server.on("/api/update", HTTP_POST, handleUpdateDone, handleUpdateUpload);
   server.onNotFound(handleNotFound);
   server.begin();
   LOG("Web: server pokrenut na portu 80");

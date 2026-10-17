@@ -16,7 +16,7 @@ constexpr uint32_t PORTAL_INFO_EVERY_MS = 20000;   // koliko često ponoviti upu
 constexpr uint32_t NTP_WARN_EVERY_MS = 3600UL * 1000;
 
 enum Item : uint8_t {
-  IT_NONE, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST
+  IT_NONE, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST, IT_HOLD
 };
 
 static MD_Parola* P = nullptr;
@@ -418,6 +418,7 @@ void displayLoop() {
     loopTest();
     return;
   }
+  if (item == IT_HOLD) return;
 
   bool done = P->displayAnimate();
   if (item == IT_TIME) {
@@ -427,6 +428,26 @@ void displayLoop() {
   } else if (done) {
     nextItem();
   }
+}
+
+void displayHold(const char* text) {
+  if (!P) return;
+  item = IT_HOLD;
+  utf8ToGlyphs(text, glyphs, sizeof(glyphs));
+  P->setFont(fontData(FONT_ID_TEXT));
+  P->setCharSpacing(1);
+  P->displayText(glyphs, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+  if (!isOn) P->displayShutdown(false);  // i noću: korisnik treba da vidi da traje ažuriranje
+  // PA_PRINT se iscrta u prvom prolazu; drugi poziv za svaki slučaj
+  P->displayAnimate();
+  P->displayAnimate();
+}
+
+void displayResume() {
+  if (item != IT_HOLD) return;
+  item = IT_NONE;
+  updateBrightness(true);
+  nextItem();
 }
 
 void displayNotice(const char* text, bool translit) {
@@ -506,6 +527,7 @@ const char* displayItemName() {
     case IT_PRIORITY: return "prioritetna poruka";
     case IT_PORTAL: return "uputstvo za Wi-Fi";
     case IT_TEST: return "test ekran";
+    case IT_HOLD: return "ažuriranje";
     default: return "-";
   }
 }

@@ -12,6 +12,7 @@
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "ota.h"
 #include "sensors.h"
 #include "system.h"
 #include "timesync.h"
@@ -36,6 +37,7 @@ void setup() {
   netBegin();
   webBegin();
   mqttBegin();
+  otaBegin();
   LOG("Spreman, slobodan heap %u B", ESP.getFreeHeap());
 }
 
@@ -43,6 +45,7 @@ void loop() {
   uint32_t t0 = micros();
   displayLoop();
   netLoop();
+  otaLoop();
   webLoop();
   mqttLoop();
   sensorLoop();

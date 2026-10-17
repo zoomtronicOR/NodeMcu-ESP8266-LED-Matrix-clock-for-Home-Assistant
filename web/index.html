@@ -48,6 +48,10 @@ td:first-child{color:var(--mut);width:45%}
 .hm{display:flex;gap:4px;align-items:center;margin-top:4px}.hm select{flex:1}
 canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;margin-top:8px}
 #nets div{padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.bar{display:flex;align-items:center;gap:8px}.bar span{flex:1;height:8px;min-width:60px;background:var(--bg);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.err{background:var(--err)}.bar b{font-weight:400;white-space:nowrap}
+.prog{height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:12px 0 4px}
+.prog div{height:100%;width:0;background:var(--acc);transition:width .2s}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 16px;border-radius:8px;background:var(--fg);color:var(--bg);display:none;max-width:90vw;z-index:9}
 #toast.err{background:var(--err);color:#fff}
 </style>
@@ -202,6 +206,11 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <button class="btn" data-cmd="restart">Restart</button>
 <button class="btn dng" data-cmd="factory">Fabrička podešavanja</button>
 </div></div>
+<div class="card"><h2>Ažuriranje firmware-a</h2><table id="fwi"></table>
+<div class="grid" style="margin-top:12px"><label>Firmware fajl (.bin ili .bin.gz)<input type="file" id="fwFile" accept=".bin,.gz"></label></div>
+<div class="prog" id="fwProg" hidden><div></div></div>
+<div class="btns" style="margin-top:12px"><button class="btn pri" id="fwUp">Ažuriraj</button></div>
+<p class="note">Fajl posle builda: <code>.pio/build/nodemcuv2/firmware.bin</code>. Ne isključujte napajanje tokom ažuriranja (napredak se vidi i na matrici). Ako prenos ili provera ne uspeju, postojeći firmware ostaje. Automatskog vraćanja nema — ako novi firmware ne radi, oporavak je preko USB-a (<code>pio run -t upload</code>). Podešavanja se čuvaju.</p></div>
 <div class="card"><h2>Rezervna kopija podešavanja</h2><div class="btns">
 <button class="btn" id="exp">Preuzmi (bez lozinki)</button>
 <label class="btn" style="color:var(--fg)">Učitaj iz fajla<input type="file" id="imp" accept=".json" hidden></label>
@@ -399,15 +408,61 @@ $("#imp").addEventListener("change",async e=>{
   e.target.value="";
 });
 
+// ---- ažuriranje firmware-a
+let lastSys=null;
+function fwInfo(s){
+  if(!s)return;const y=s.sys;
+  $("#fwi").innerHTML=row("Verzija",esc(s.fw)+" · "+esc(s.build))+
+    row("Firmware / najveći za OTA",`${Math.round(y.sketch/1024)} KB / ${Math.round(y.otaMax/1024)} KB`)+
+    row("Wi-Fi signal",s.wifi.ok?`${s.wifi.rssi} dBm (potrebno bar ${y.otaRssi} dBm)`:"nema veze",s.wifi.ok&&s.wifi.rssi>=y.otaRssi?"ok":"warn")+
+    row("Mrežni OTA (espota)",y.otaNet?"aktivan (lozinka = admin lozinka)":"isključen — postavite admin lozinku",y.otaNet?"ok":"");
+}
+async function waitForReboot(oldBuild){
+  for(let i=0;i<40;i++){
+    await new Promise(r=>setTimeout(r,1500));
+    try{const s=await api("/api/status");if(s.sys.uptime<60||s.build!==oldBuild){lastSys=s;fwInfo(s);return s}}catch(e){}
+  }
+  return null;
+}
+$("#fwUp").addEventListener("click",()=>{
+  const f=$("#fwFile").files[0];
+  if(!f){toast("Izaberite firmware fajl.",1);return}
+  if(lastSys&&f.size>lastSys.sys.otaMax){toast("Fajl je prevelik za slobodan prostor.",1);return}
+  if(!confirm(`Ažurirati firmware fajlom „${f.name}“ (${Math.round(f.size/1024)} KB)?`))return;
+  const fd=new FormData();fd.append("firmware",f,f.name);
+  const x=new XMLHttpRequest(),bar=$("#fwProg"),b=$("#fwUp"),old=lastSys?lastSys.build:"";
+  bar.hidden=false;bar.firstElementChild.style.width="0";b.disabled=true;
+  x.upload.onprogress=e=>{if(e.lengthComputable)bar.firstElementChild.style.width=(e.loaded*100/e.total)+"%"};
+  x.onload=async()=>{
+    let j={};try{j=JSON.parse(x.responseText)}catch(e){}
+    if(x.status===200&&j.ok){
+      toast("Firmware je upisan — uređaj se restartuje...");
+      const s=await waitForReboot(old);
+      toast(s?`Uređaj radi: verzija ${s.fw} (${s.build}).`:"Uređaj se još ne javlja — proverite ga ručno.",!s);
+    }else toast("Ažuriranje nije uspelo: "+(j.error||("greška "+x.status))+". Postojeći firmware ostaje.",1);
+    bar.hidden=true;b.disabled=false;
+  };
+  x.onerror=()=>{toast("Prekinuta veza tokom prenosa. Postojeći firmware ostaje.",1);bar.hidden=true;b.disabled=false};
+  x.open("POST","/api/update?size="+f.size);x.send(fd);
+});
+
 // ---- stanje
 function sensText(n){
   if(!n.type)return"nije izabran";
   const v=[n.t!==undefined?n.t+" °C":"",n.h!==undefined?n.h+" %":"",n.p!==undefined?n.p+" hPa":""].filter(Boolean).join(" · ");
   return esc(n.name)+" — "+(v||esc(n.state));
 }
+// red sa progres barom: pct 0-100; good=true znači da je veći procenat bolji
+function barRow(k,pct,text,good,warnAt,errAt){
+  pct=Math.max(0,Math.min(100,pct));
+  const bad=good?100-pct:pct,c=bad>=errAt?"err":bad>=warnAt?"warn":"";
+  return`<tr><td>${k}</td><td><div class="bar"><span><i class="${c}" style="width:${pct.toFixed(0)}%"></i></span><b>${text}</b></div></td></tr>`;
+}
+const kb=b=>Math.round(b/1024)+" KB";
 function row(k,v,cls){return`<tr><td>${k}</td><td${cls?` class="${cls}"`:""}>${v}</td></tr>`}
 async function status(){
   let s;try{s=await api("/api/status")}catch(e){$("#clock").textContent="offline";return}
+  lastSys=s;fwInfo(s);
   $("#clock").textContent=s.time||"--:--";
   const w=s.wifi,y=s.sys,d=s.disp;
   $("#st").innerHTML=
@@ -421,15 +476,20 @@ async function status(){
     row("Na ekranu",d.item+` · osvetljaj ${d.bright}`+(d.on?"":" · matrica ugašena"));
   $("#dg").innerHTML=
     row("Firmware",s.fw)+row("Uptime",fmtUp(y.uptime))+row("Razlog poslednjeg restarta",esc(y.reset))+
-    row("Slobodan heap",`${y.heap} B (najmanje ${y.heapMin} B)`,y.heapMin<8000?"err":"")+
-    row("Najveći slobodan blok / fragmentacija",`${y.maxBlock} B / ${y.frag} %`)+
-    row("Najduži prolaz petlje",y.loopMax+" ms",y.loopMax>500?"warn":"")+
+    barRow("Slobodna memorija",y.heap*100/y.heapBoot,`${kb(y.heap)} od ${kb(y.heapBoot)}`,true,60,80)+
+    barRow("Najmanje slobodne memorije",y.heapMin*100/y.heapBoot,kb(y.heapMin),true,70,85)+
+    barRow("Fragmentacija memorije",y.frag,`${y.frag} % · najveći blok ${kb(y.maxBlock)}`,false,30,50)+
+    (w.ok?barRow("Wi-Fi signal",2*(w.rssi+100),`${w.rssi} dBm`,true,50,70):row("Wi-Fi signal","nema veze","warn"))+
+    barRow("Najduži prolaz petlje",y.loopMax/5,y.loopMax+" ms",false,20,60)+
+    barRow("Prostor za firmware",y.sketch*100/(y.sketch+y.sketchFree),`${kb(y.sketch)} od ${kb(y.sketch+y.sketchFree)}`,false,50,75)+
+    barRow("Mesto za OTA",y.sketch*100/y.otaMax,y.sketch<=y.otaMax?`novi firmware do ${kb(y.otaMax)}`:"nema mesta",false,70,95)+
+    (y.fsTotal?barRow("Fajl sistem (podešavanja)",y.fsUsed*100/y.fsTotal,`${kb(y.fsUsed)} od ${kb(y.fsTotal)}`,false,70,90):"")+
     row("Wi-Fi neuspeli pokušaji / prekidi",`${w.fails} / ${w.disc}`)+
     row("MQTT povezivanja / neuspeli pokušaji",`${s.mqtt.connects} / ${s.mqtt.fails}`+(s.mqtt.age>=0?` · poslednje pre ${Math.round(s.mqtt.age/60)} min`:""))+
     row("Matrica",`${d.modules} modula (${d.modules*8} kolona), tip ${d.hw}`)+
     row("NTP sinhronizacija",s.ntpCount+" puta")+
     row("MAC / čip",`${w.mac} / ${y.chip}`)+
-    row("Flash / firmware / slobodno za OTA",`${y.flash>>20} MB / ${Math.round(y.sketch/1024)} KB / ${Math.round(y.sketchFree/1024)} KB`);
+    row("Flash čip",`${y.flash>>20} MB`);
   const n=s.sens;
   $("#sst").innerHTML=row("Aktivan senzor",esc(n.name)+(n.model?" ("+esc(n.model)+")":""))+row("Stanje",esc(n.state),n.type?(n.t!==undefined?"ok":"warn"):"")+
     row("Temperatura",n.t!==undefined?n.t+" °C":"—")+row("Vlažnost",n.h!==undefined?n.h+" %":"—")+row("Pritisak",n.p!==undefined?n.p+" hPa":"—")+
@@ -447,7 +507,7 @@ $("#tabs").addEventListener("click",e=>{
   const t=e.target.dataset.t;if(!t)return;
   $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   $$("section").forEach(s=>s.classList.toggle("on",s.id===t));
-  schedule();if(t==="pregled"||t==="senzori")status();
+  schedule();if(t==="pregled"||t==="senzori"||t==="sistem")status();
 });
 async function loadCfg(netOnly){
   cfg=await api("/api/config");

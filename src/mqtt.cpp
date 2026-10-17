@@ -552,6 +552,10 @@ void mqttLoop() {
   }
 }
 
+void mqttGoOffline() {
+  if (st == MQ_CONNECTED) client.publish(topicStatus, 1, true, "offline");
+}
+
 bool mqttConnected() { return st == MQ_CONNECTED; }
 
 const char* mqttStateText() {

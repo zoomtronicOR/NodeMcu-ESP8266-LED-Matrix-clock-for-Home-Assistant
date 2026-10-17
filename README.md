@@ -22,6 +22,7 @@ neblokirajuća, a kvar bilo kog podsistema ne zaustavlja prikaz vremena.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
 - **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
+- **OTA ažuriranje:** iz web UI-ja ili preko `espota`, uz proveru signala, mesta i veličine fajla. Neuspelo ažuriranje ostavlja postojeći firmware.
 - **Dijagnostika:** slobodna i najniža memorija, uptime, razlog restarta, najduža petlja, statusi Wi-Fi/NTP/MQTT.
 
 ## Hardver
@@ -52,6 +53,18 @@ pio device monitor      # serijski monitor, 115200
 Fontovi (`tools/fonts/*.txt` → `tools/gen_fonts.py`) i web UI (`web/index.html` → `tools/embed_web.py`)
 generišu se automatski pri svakom buildu u `src/generated/`. Web UI je ugrađen u firmware, pa nije potreban
 upload fajl sistema.
+
+## Ažuriranje preko mreže (OTA)
+
+- **Web UI:** kartica **Sistem → Ažuriranje firmware-a**, fajl `.pio/build/nodemcuv2/firmware.bin`. Napredak se prikazuje u pregledaču i na matrici.
+- **PlatformIO (espota):** radi samo kad je postavljena admin lozinka, koja je i OTA lozinka:
+  ```
+  # PowerShell
+  $env:MATRIX_OTA_PASS="admin-lozinka"; pio run -e ota -t upload
+  ```
+  Ime uređaja (`upload_port` u `[env:ota]`) prilagoditi svom uređaju ili navesti IP adresu.
+- Ažuriranje ne počinje bez Wi-Fi veze, ako je signal slabiji od −80 dBm, ili ako nema dovoljno mesta. Prekinut, skraćen ili neispravan fajl se odbacuje, a postojeći firmware ostaje.
+- **Automatskog vraćanja na stari firmware nema.** Ako novi firmware ne radi, oporavak je preko USB-a (`pio run -t upload`).
 
 ## Prvo pokretanje
 

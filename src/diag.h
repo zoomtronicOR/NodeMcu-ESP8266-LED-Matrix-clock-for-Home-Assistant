@@ -6,6 +6,7 @@ void diagBegin();
 void diagLoop(uint32_t loopUs);  // poziva se jednom po prolazu glavne petlje
 
 uint32_t diagHeapMin();
+uint32_t diagHeapBoot();  // slobodan heap na samom početku setup()-a (referenca za procente)
 uint32_t diagUptimeS();
 uint32_t diagLoopMaxMs();
 const char* diagResetReason();

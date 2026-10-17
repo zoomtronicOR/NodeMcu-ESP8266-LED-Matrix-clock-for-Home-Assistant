@@ -15,6 +15,11 @@ void displayPriority(const char* utf8, uint16_t seconds);
 void displayPriorityClear();
 void displayTest();  // sve LED, pa brojevi modula
 
+// Odmah ispisuje statičan tekst i zadržava ga (rotacija stoji) — npr. napredak OTA,
+// kada glavna petlja ne radi. displayResume() nastavlja rotaciju.
+void displayHold(const char* utf8);
+void displayResume();
+
 // Režim prikaza (ne čuva se; posle restarta je NORMAL).
 // DND = "ne uznemiravaj": sat radi, poruke i obaveštenja se ne prikazuju.
 enum DisplayMode : uint8_t { DM_NORMAL = 0, DM_OFF, DM_DND, DM_COUNT };

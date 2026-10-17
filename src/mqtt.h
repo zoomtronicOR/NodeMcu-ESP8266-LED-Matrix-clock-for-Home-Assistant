@@ -20,6 +20,7 @@
 void mqttBegin();
 void mqttLoop();
 void mqttApplyConfig();  // posle promene MQTT podešavanja
+void mqttGoOffline();    // pre planiranog restarta/ažuriranja: status "offline"
 bool mqttConfigChanged(const MqttConfig& a, const MqttConfig& b);
 
 bool mqttConnected();
