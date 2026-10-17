@@ -33,8 +33,8 @@ input[type=range]{width:100%}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn.dng{color:var(--err);border-color:var(--err)}
 .btn:disabled{opacity:.5;cursor:default}
-table{width:100%;border-collapse:collapse}
-td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
 td:first-child{color:var(--mut);width:45%}
 .ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}
 .note{font-size:13px;color:var(--mut);margin:8px 0 0}
@@ -48,8 +48,8 @@ td:first-child{color:var(--mut);width:45%}
 .hm{display:flex;gap:4px;align-items:center;margin-top:4px}.hm select{flex:1}
 canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;margin-top:8px}
 #nets div{padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
-.bar{display:flex;align-items:center;gap:8px}.bar span{flex:1;height:8px;min-width:60px;background:var(--bg);border:1px solid var(--line);border-radius:5px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.err{background:var(--err)}.bar b{font-weight:400;white-space:nowrap}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px}.bar span{flex:0 0 45%;min-width:90px;height:8px;background:var(--bg);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}.bar i.warn{background:var(--warn)}.bar i.err{background:var(--err)}.bar b{font-weight:400}
 .prog{height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:12px 0 4px}
 .prog div{height:100%;width:0;background:var(--acc);transition:width .2s}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 16px;border-radius:8px;background:var(--fg);color:var(--bg);display:none;max-width:90vw;z-index:9}
@@ -503,12 +503,17 @@ function schedule(){clearInterval(stTimer);if(!document.hidden&&($("#pregled").c
 document.addEventListener("visibilitychange",schedule);
 
 // ---- tabovi i učitavanje
-$("#tabs").addEventListener("click",e=>{
-  const t=e.target.dataset.t;if(!t)return;
+function showTab(t){
   $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   $$("section").forEach(s=>s.classList.toggle("on",s.id===t));
   schedule();if(t==="pregled"||t==="senzori"||t==="sistem")status();
+}
+// kartica se pamti u adresi (#prikaz, #mqtt...), pa se može otvoriti direktno
+$("#tabs").addEventListener("click",e=>{
+  const t=e.target.dataset.t;if(!t)return;
+  history.replaceState(null,"","#"+t);showTab(t);
 });
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if($("#tabs [data-t='"+h+"']"))showTab(h)});
 async function loadCfg(netOnly){
   cfg=await api("/api/config");
   if(netOnly){fillSection("mreza",cfg);return}
@@ -527,7 +532,9 @@ async function loadCfg(netOnly){
     $("#timeFont").innerHTML=meta.fonts.map((f,i)=>i?`<option value="${i}">${f}</option>`:"").join("");
     $("#pvFont").innerHTML=meta.fonts.map((f,i)=>`<option value="${i}">${f}</option>`).join("");
     $("#tzSel").innerHTML=TZ.map((z,i)=>`<option value="${i}">${z[0]}</option>`).join("")+'<option value="x">Drugo (POSIX zapis)</option>';
-    await loadCfg();await status();schedule();
+    await loadCfg();await status();
+    const h=location.hash.slice(1);
+    if(h&&$("#tabs [data-t='"+h+"']"))showTab(h);else schedule();
   }catch(e){toast(e.message,1)}
 })();
 </script>

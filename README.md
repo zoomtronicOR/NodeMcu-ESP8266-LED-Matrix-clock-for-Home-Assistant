@@ -7,6 +7,29 @@ sa Home Assistantom. Ceo interfejs i prikaz su na srpskom, latinicom ili ćirili
 Osnovno pravilo dizajna: **sat ne zavisi od Wi-Fi-ja, MQTT-a, web UI-ja ni senzora**. Glavna petlja je
 neblokirajuća, a kvar bilo kog podsistema ne zaustavlja prikaz vremena.
 
+## Izgled web interfejsa
+
+| Pregled (svetla tema) | Pregled (tamna tema) | Telefon |
+|---|---|---|
+| <img src="docs/screenshots/pregled.png" width="360"> | <img src="docs/screenshots/pregled-tamno.png" width="360"> | <img src="docs/screenshots/telefon.png" width="170"> |
+
+<details>
+<summary>Ostale kartice: Prikaz, Poruke, Vreme, Mreža, Senzori, MQTT, Sistem</summary>
+
+| Prikaz | Poruke |
+|---|---|
+| <img src="docs/screenshots/prikaz.png" width="420"> | <img src="docs/screenshots/poruke.png" width="420"> |
+| **Vreme** | **Mreža** |
+| <img src="docs/screenshots/vreme.png" width="420"> | <img src="docs/screenshots/mreza.png" width="420"> |
+| **Senzori** | **MQTT** |
+| <img src="docs/screenshots/senzori.png" width="420"> | <img src="docs/screenshots/mqtt.png" width="420"> |
+| **Sistem** | |
+| <img src="docs/screenshots/sistem.png" width="420"> | |
+
+</details>
+
+Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva uređaj: `python tools/mock_server.py` otvara UI na http://127.0.0.1:8080, a `python tools/screenshots.py` ponovo pravi slike pomoću headless Edge/Chrome-a.
+
 ## Mogućnosti
 
 - **Vreme:** 12/24 h, opcione sekunde, trepćuća dvotačka, 3 fonta sata sa ciframa iste širine. NTP sa 3 servera, vremenska zona sa automatskim letnjim računanjem vremena. Bez mreže vreme nastavlja iz internog sata.
