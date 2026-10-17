@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Matrični sat</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--fg:#1d2330;--mut:#667085;--line:#d9dde3;--acc:#c0392b;--ok:#1e8e3e;--warn:#b26a00;--err:#c5221f}
+@media(prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--fg:#e6e8eb;--mut:#9aa3af;--line:#343a44;--acc:#ff6b5b;--ok:#4cc26b;--warn:#f0a83a;--err:#ff6b6b}}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+header h1{font-size:17px;margin:0;flex:1}
+#clock{font:600 18px ui-monospace,Consolas,monospace;color:var(--acc)}
+nav{display:flex;gap:4px;overflow-x:auto;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line)}
+nav button{border:0;background:none;color:var(--mut);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--bg);color:var(--fg);font-weight:600}
+main{max-width:860px;margin:0 auto;padding:16px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px}
+label{display:block;font-size:13px;color:var(--mut)}
+label>input,label>select{display:block;width:100%;margin-top:4px}
+input,select,button{font:inherit;color:inherit}
+input[type=text],input[type=password],input[type=number],input[type=time],select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+input[type=range]{width:100%}
+.chk{display:flex;align-items:center;gap:8px;color:var(--fg);font-size:14px}
+.chk input{width:auto;margin:0}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.btn{border:1px solid var(--line);background:var(--card);padding:8px 14px;border-radius:8px;cursor:pointer}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.dng{color:var(--err);border-color:var(--err)}
+.btn:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse}
+td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td:first-child{color:var(--mut);width:45%}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}
+.note{font-size:13px;color:var(--mut);margin:8px 0 0}
+.banner{padding:10px 12px;border-radius:8px;margin-bottom:12px;border:1px solid var(--warn);color:var(--warn);display:none}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.row input[type=text]{flex:1;min-width:0}
+.cnt{font-size:12px;color:var(--mut);min-width:52px;text-align:right}
+.pg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.pg span{flex:1}
+.pg button{padding:2px 10px}
+.hm{display:flex;gap:4px;align-items:center;margin-top:4px}.hm select{flex:1}
+canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;margin-top:8px}
+#nets div{padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 16px;border-radius:8px;background:var(--fg);color:var(--bg);display:none;max-width:90vw;z-index:9}
+#toast.err{background:var(--err);color:#fff}
+</style>
+</head>
+<body>
+<header><h1>Matrični sat</h1><span id="clock">--:--</span></header>
+<nav id="tabs">
+<button data-t="pregled" class="on">Pregled</button><button data-t="prikaz">Prikaz</button><button data-t="poruke">Poruke</button><button data-t="vreme">Vreme</button><button data-t="mreza">Mreža</button><button data-t="mqtt">MQTT</button><button data-t="sistem">Sistem</button>
+</nav>
+<main>
+<div class="banner" id="bDirty">Postoje primenjena podešavanja koja nisu sačuvana — posle restarta se gube.</div>
+<div class="banner" id="bRestart">Neke promene (tip modula, ime uređaja) deluju tek posle restarta.</div>
+<div class="banner" id="bCfgErr"></div>
+<div class="banner" id="bAdmin">Web interfejs nije zaštićen lozinkom. Postavite je na kartici „Sistem“.</div>
+
+<section id="pregled" class="on">
+<div class="card"><h2>Stanje</h2><table id="st"></table></div>
+<div class="card"><h2>Režim prikaza</h2><div class="grid">
+<label>Trenutni režim<select id="dmode"><option value="normal">normalno</option><option value="dnd">ne uznemiravaj (samo sat)</option><option value="off">matrica ugašena</option></select></label>
+</div><p class="note">Režim se ne čuva — posle restarta je „normalno“. Menja se i iz Home Assistanta.</p></div>
+<div class="card"><h2>Dijagnostika</h2><table id="dg"></table></div>
+</section>
+
+<section id="prikaz" data-sec="disp">
+<div class="card"><h2>Osvetljaj</h2><div class="grid">
+<label>Dnevni nivo: <b id="v_bDay"></b><input type="range" min="0" max="15" data-k="disp.bDay"></label>
+<label>Noćni nivo: <b id="v_bNight"></b><input type="range" min="0" max="15" data-k="disp.bNight"></label>
+<label>Najveći dozvoljeni: <b id="v_bMax"></b><input type="range" min="0" max="15" data-k="disp.bMax"></label>
+</div>
+<p class="note">Najveći nivo ograničava sve ostale (zagrevanje i potrošnja).</p></div>
+
+<div class="card"><h2>Noćni režim</h2><div class="grid">
+<label class="chk"><input type="checkbox" data-k="disp.night"> Uključen</label>
+<label>Početak<span class="hm" data-k="disp.nStart"></span></label>
+<label>Kraj<span class="hm" data-k="disp.nEnd"></span></label>
+<label>Noću<select data-k="disp.nMode"><option value="0">smanji osvetljaj</option><option value="1">ugasi matricu</option></select></label>
+</div><p class="note">Sat i mrežni servisi rade i kad je matrica ugašena.</p></div>
+
+<div class="card"><h2>Stranice i redosled</h2><div id="pages"></div>
+<div class="grid" style="margin-top:12px">
+<label>Trajanje stranice vremena (s)<input type="number" min="3" max="250" data-k="disp.tSec"></label>
+<label>Trajanje ostalih stranica (s)<input type="number" min="1" max="60" data-k="disp.iSec"></label>
+</div></div>
+
+<div class="card"><h2>Skrolovanje</h2><div class="grid">
+<label>Smer<select data-k="disp.dir"><option value="0">levo</option><option value="1">desno</option><option value="2">gore</option><option value="3">dole</option></select></label>
+<label>Brzina (ms po koraku, manje = brže)<input type="number" min="10" max="200" data-k="disp.speed"></label>
+<label>Pauza na kraju poruke (ms)<input type="number" min="0" max="10000" step="100" data-k="disp.pause"></label>
+</div><p class="note">Kratak tekst se prikazuje statično; gore/dole važi samo za tekst koji staje na ekran.</p></div>
+
+<div class="card"><h2>Matrica i font sata</h2><div class="grid">
+<label>Broj modula 8×8 u lancu<select data-k="disp.modules" id="modules"></select></label>
+<label>Tip modula (orijentacija)<select data-k="disp.hw" id="hw"></select></label>
+<label>Font sata<select data-k="disp.timeFont" id="timeFont"></select></label>
+</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font.</p></div>
+
+<div class="card"><h2>Pregled fonta</h2><div class="grid">
+<label>Probni tekst<input type="text" id="pvText" maxlength="40" value="Čačak 12:34 Ђурђевдан"></label>
+<label>Font<select id="pvFont"></select></label>
+</div><canvas id="pv" height="40"></canvas><p class="note">Okvir označava širinu matrice (<span id="pvCols">32</span> kolone).</p></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="apply">Primeni</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
+</section>
+
+<section id="poruke" data-sec="msgs">
+<div class="card"><h2>Poruke u rotaciji</h2><div id="msgs"></div>
+<p class="note">Najviše 150 bajtova po poruci (č, ć, ž, š, đ i ćirilica zauzimaju po 2 bajta). Nepodržani znakovi se prikazuju kao □.</p></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="apply">Primeni</button></div>
+<div class="card" style="margin-top:16px"><h2>Prioritetna poruka</h2>
+<div class="row"><input type="text" id="prText" placeholder="Tekst koji odmah prekida rotaciju"><span class="cnt" id="prCnt"></span></div>
+<div class="grid"><label>Trajanje (s)<input type="number" id="prSec" min="5" max="3600" value="60"></label></div>
+<div class="btns" style="margin-top:12px"><button class="btn pri" id="prSend">Prikaži</button><button class="btn" id="prClear">Ukloni</button></div></div>
+</section>
+
+<section id="vreme" data-sec="time">
+<div class="card"><h2>Vremenska zona i NTP</h2><div class="grid">
+<label>Vremenska zona<select id="tzSel"></select></label>
+<label id="tzCustom">POSIX TZ zapis<input type="text" data-k="time.tz" maxlength="48"></label>
+<label>NTP server 1<input type="text" data-k="time.ntp.0" maxlength="40"></label>
+<label>NTP server 2<input type="text" data-k="time.ntp.1" maxlength="40"></label>
+<label>NTP server 3<input type="text" data-k="time.ntp.2" maxlength="40"></label>
+</div></div>
+<div class="card"><h2>Format</h2><div class="grid">
+<label class="chk"><input type="checkbox" data-k="time.h24"> 24-časovni format</label>
+<label class="chk"><input type="checkbox" data-k="time.seconds"> Prikaži sekunde</label>
+<label class="chk"><input type="checkbox" data-k="time.blink"> Trepćuća dvotačka</label>
+<label class="chk"><input type="checkbox" data-k="time.lead0"> Vodeća nula u satima</label>
+<label class="chk"><input type="checkbox" data-k="time.cyr"> Ćirilica (dani, meseci, poruke sistema)</label>
+<label>Format datuma<select data-k="time.dateFmt"><option value="0">17.10.2026.</option><option value="1">17.10.</option><option value="2">17. okt 2026.</option><option value="3">17. oktobar 2026.</option><option value="4">2026-10-17</option><option value="5">sub 17.10.</option></select></label>
+</div></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="apply">Primeni</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
+</section>
+
+<section id="mreza" data-sec="net">
+<div class="card"><h2>Wi-Fi mreža</h2><div class="grid">
+<label>SSID<input type="text" data-k="net.ssid" maxlength="32" id="ssid"></label>
+<label>Lozinka<input type="password" data-k="net.pass" data-secret maxlength="63" id="wpass"></label>
+</div>
+<div class="btns" style="margin-top:12px"><button class="btn" id="scan">Pretraži mreže</button></div>
+<div id="nets"></div>
+<p class="note">Posle čuvanja uređaj se odmah povezuje na novu mrežu; nova IP adresa se prikazuje na matrici.</p></div>
+<div class="card"><h2>Uređaj i pristupna tačka</h2><div class="grid">
+<label>Ime uređaja (mDNS: ime.local)<input type="text" data-k="net.hostname" maxlength="24"></label>
+<label>Lozinka pristupne tačke za podešavanje<input type="password" data-k="net.apPass" data-secret maxlength="63" placeholder="nepromenjena"></label>
+<label>Pristupna tačka posle neuspelih pokušaja<input type="number" min="1" max="50" data-k="net.portalFails"></label>
+</div><p class="note">Pristupna tačka se pokreće ako Wi-Fi nije podešen, ako posle pokretanja ne uspe zadati broj pokušaja povezivanja, ili držanjem tastera FLASH 3 s.</p></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button></div>
+</section>
+
+<section id="mqtt" data-sec="mqtt">
+<div class="card"><h2>Broker</h2><div class="grid">
+<label class="chk"><input type="checkbox" data-k="mqtt.on"> MQTT uključen</label>
+<label>Adresa brokera<input type="text" data-k="mqtt.host" maxlength="64" placeholder="npr. 192.168.1.10"></label>
+<label>Port<input type="number" min="1" max="65535" data-k="mqtt.port"></label>
+<label>Korisničko ime<input type="text" data-k="mqtt.user" maxlength="32" autocomplete="off"></label>
+<label>Lozinka<input type="password" data-k="mqtt.pass" data-secret maxlength="64" id="mqpass" autocomplete="new-password"></label>
+</div><p class="note">Anonimna veza nije dozvoljena. Ako broker nije dostupan, sat i web UI rade normalno, a povezivanje se ponavlja u rastućim intervalima.</p></div>
+<div class="card"><h2>Teme i Home Assistant</h2><div class="grid">
+<label>Osnovna tema<input type="text" data-k="mqtt.base" maxlength="32"></label>
+<label>Interval telemetrije (s)<input type="number" min="30" max="3600" data-k="mqtt.tele"></label>
+<label class="chk"><input type="checkbox" data-k="mqtt.disc"> Home Assistant Discovery</label>
+<label>Discovery prefiks<input type="text" data-k="mqtt.discPrefix" maxlength="24"></label>
+</div><p class="note">Komande: <code><span class="tb"></span>/command/brightness</code> (0-15), <code>…/message</code> (tekst ili {"text","seconds"}), <code>…/display_mode</code> (normal, off, dnd), <code>…/page</code> (time, date, weekday, messages). Stanje: <code>…/state</code>, telemetrija: <code>…/telemetry</code>, dostupnost: <code>…/status</code>. Kad se Discovery isključi, entiteti se uklanjaju iz Home Assistanta.</p></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
+</section>
+
+<section id="sistem">
+<div class="card"><h2>Administratorska lozinka</h2><div class="grid">
+<label>Nova lozinka (korisnik: admin)<input type="password" id="adm" maxlength="32"></label>
+</div><div class="btns" style="margin-top:12px"><button class="btn pri" id="admSet">Postavi</button><button class="btn" id="admClr">Ukloni zaštitu</button></div>
+<p class="note">Ne izlažite web interfejs internetu — samo lokalna mreža ili VPN.</p></div>
+<div class="card"><h2>Uređaj</h2><div class="btns">
+<button class="btn" data-cmd="test">Test ekran</button>
+<button class="btn" data-cmd="portal">Pokreni Wi-Fi podešavanje</button>
+<button class="btn" data-cmd="restart">Restart</button>
+<button class="btn dng" data-cmd="factory">Fabrička podešavanja</button>
+</div></div>
+<div class="card"><h2>Rezervna kopija podešavanja</h2><div class="btns">
+<button class="btn" id="exp">Preuzmi (bez lozinki)</button>
+<label class="btn" style="color:var(--fg)">Učitaj iz fajla<input type="file" id="imp" accept=".json" hidden></label>
+</div></div>
+</section>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+let cfg=null,meta=null,stTimer=0;
+const PAGES=["Vreme","Datum","Dan u nedelji","Poruke"];
+const HW=["Generic","FC-16 (najčešći)","Parola","ICStation","DR0 CR0 RR0","DR0 CR0 RR1","DR0 CR1 RR0","DR0 CR1 RR1","DR1 CR0 RR0","DR1 CR0 RR1","DR1 CR1 RR0","DR1 CR1 RR1"];
+const TZ=[["Europe/Belgrade","CET-1CEST,M3.5.0,M10.5.0/3"],["Europe/London","GMT0BST,M3.5.0/1,M10.5.0"],["Europe/Athens","EET-2EEST,M3.5.0/3,M10.5.0/4"],["Europe/Istanbul","<+03>-3"],["Europe/Moscow","MSK-3"],["UTC","UTC0"],["America/New_York","EST5EDT,M3.2.0,M11.1.0"],["America/Chicago","CST6CDT,M3.2.0,M11.1.0"],["America/Los_Angeles","PST8PDT,M3.2.0,M11.1.0"],["Asia/Dubai","<+04>-4"],["Asia/Tokyo","JST-9"],["Australia/Sydney","AEST-10AEDT,M10.1.0,M4.1.0/3"]];
+const enc=new TextEncoder();
+
+function toast(t,err){const e=$("#toast");e.textContent=t;e.className=err?"err":"";e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",err?6000:2500)}
+async function api(path,body){
+  const o=body===undefined?{}:{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};
+  let r;try{r=await fetch(path,o)}catch(e){throw new Error("uređaj nije dostupan")}
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok||j.ok===false)throw new Error(j.error||("greška "+r.status));
+  return j;
+}
+const get=(o,p)=>p.split(".").reduce((a,k)=>a==null?a:a[k],o);
+function set(o,p,v){const ks=p.split(".");let a=o;ks.slice(0,-1).forEach((k,i)=>{if(a[k]==null)a[k]=/^\d+$/.test(ks[i+1])?[]:{};a=a[k]});a[ks[ks.length-1]]=v}
+const fmtUp=s=>{const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return(d?d+" d ":"")+h+" h "+m+" min"};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---- popunjavanje i čitanje formi
+function fill(root,c){
+  root.querySelectorAll("[data-k]").forEach(el=>{
+    const v=get(c,el.dataset.k);
+    if(el.hasAttribute("data-secret")){el.value="";return}
+    if(v===undefined)return;
+    if(el.type==="checkbox")el.checked=!!v;
+    else if(el.classList.contains("hm"))setHm(el,v);
+    else el.value=v;
+  });
+  updRanges();
+}
+function collect(root){
+  const o={};
+  root.querySelectorAll("[data-k]").forEach(el=>{
+    let v;
+    if(el.type==="checkbox")v=el.checked;
+    else if(el.classList.contains("hm")){const q=el.querySelectorAll("select");v=(+q[0].value)*60+(+q[1].value)}
+    else if(el.type==="number"||el.type==="range"||el.tagName==="SELECT")v=Number(el.value);
+    else v=el.value.trim();
+    if(el.hasAttribute("data-secret")&&!v)return;
+    set(o,el.dataset.k,v);
+  });
+  return o;
+}
+// izbor vremena u 24-časovnom formatu (input type=time prati jezik pregledača i može prikazati AM/PM)
+const pad=n=>String(n).padStart(2,"0");
+function initHm(){$$(".hm").forEach(el=>{
+  el.innerHTML='<select aria-label="sat">'+[...Array(24).keys()].map(h=>`<option value="${h}">${pad(h)}</option>`).join("")+'</select>:<select aria-label="minut">'+[...Array(12).keys()].map(m=>`<option value="${m*5}">${pad(m*5)}</option>`).join("")+"</select>";
+})}
+function setHm(el,v){
+  const q=el.querySelectorAll("select"),h=Math.floor(v/60),m=v%60;
+  q[0].value=h;
+  if(![...q[1].options].some(o=>+o.value===m)){q[1].add(new Option(pad(m),m));[...q[1].options].sort((a,b)=>a.value-b.value).forEach(x=>q[1].add(x))}
+  q[1].value=m;
+}
+function updRanges(){$$("input[type=range]").forEach(r=>{const b=$("#v_"+r.dataset.k.split(".")[1]);if(b)b.textContent=r.value})}
+
+// ---- stranice (redosled + uključeno)
+let order=[0,1,2,3],pagesOn=[true,true,true,true];
+function drawPages(){
+  $("#pages").innerHTML=order.map((p,i)=>`<div class="pg"><input type="checkbox" data-p="${p}" ${pagesOn[p]?"checked":""}><span>${PAGES[p]}</span><button class="btn" data-up="${i}" ${i?"":"disabled"}>↑</button><button class="btn" data-dn="${i}" ${i<3?"":"disabled"}>↓</button></div>`).join("");
+}
+$("#pages").addEventListener("click",e=>{
+  const u=e.target.dataset.up,d=e.target.dataset.dn;
+  if(e.target.dataset.p!==undefined){pagesOn[+e.target.dataset.p]=e.target.checked;return}
+  const i=u!==undefined?+u:d!==undefined?+d+1:-1;if(i<1)return;
+  [order[i-1],order[i]]=[order[i],order[i-1]];drawPages();
+});
+
+// ---- poruke
+function drawMsgs(list){
+  $("#msgs").innerHTML=list.map((m,i)=>`<div class="row"><input type="checkbox" data-mon="${i}" ${m.on?"checked":""} title="uključena"><input type="text" data-mt="${i}" value="${esc(m.t)}" placeholder="Poruka ${i+1}"><span class="cnt" data-mc="${i}"></span></div>`).join("");
+  $$("[data-mt]").forEach(updCnt);
+}
+function updCnt(el){const n=enc.encode(el.value).length,c=$(`[data-mc="${el.dataset.mt}"]`);c.textContent=n+"/"+meta.msgMax;c.className="cnt"+(n>meta.msgMax?" err":"")}
+$("#msgs").addEventListener("input",e=>{if(e.target.dataset.mt!==undefined)updCnt(e.target)});
+const collectMsgs=()=>$$("[data-mt]").map((el,i)=>({on:$(`[data-mon="${i}"]`).checked,t:el.value}));
+
+// ---- vremenska zona
+function fillTz(c){
+  const i=TZ.findIndex(z=>z[1]===c.time.tz&&z[0]===c.time.tzName);
+  $("#tzSel").value=i>=0?i:"x";$("#tzCustom").style.display=i>=0?"none":"";
+}
+$("#tzSel").addEventListener("change",e=>{
+  const v=e.target.value;$("#tzCustom").style.display=v==="x"?"":"none";
+  if(v!=="x")$("[data-k='time.tz']").value=TZ[+v][1];
+});
+
+// ---- sekcije: sačuvaj / primeni / podrazumevano
+function sectionPayload(sec){
+  const s=$("#"+sec);
+  if(s.dataset.sec==="msgs")return{msgs:collectMsgs()};
+  const o=collect(s);
+  if(s.dataset.sec==="disp"){o.disp.order=order.slice();o.disp.pages=pagesOn.slice()}
+  if(s.dataset.sec==="time"){const v=$("#tzSel").value;o.time.tzName=v==="x"?"custom":TZ[+v][0]}
+  return o;
+}
+function fillSection(sec,c){
+  const s=$("#"+sec);
+  if(s.dataset.sec==="msgs"){drawMsgs(c.msgs);return}
+  fill(s,c);
+  if(s.dataset.sec==="disp"){order=c.disp.order.slice();pagesOn=c.disp.pages.slice();drawPages();preview()}
+  if(s.dataset.sec==="time")fillTz(c);
+}
+$$("[data-act]").forEach(b=>b.addEventListener("click",async()=>{
+  const sec=b.closest("section").id,act=b.dataset.act;
+  if(act==="defaults"){try{fillSection(sec,await api("/api/defaults"));toast("Podrazumevane vrednosti su upisane u formu — kliknite Sačuvaj ili Primeni.")}catch(e){toast(e.message,1)}return}
+  b.disabled=true;
+  try{
+    const r=await api("/api/config"+(act==="save"?"?save=1":""),sectionPayload(sec));
+    toast(act==="save"?"Sačuvano.":"Primenjeno (nije sačuvano).");
+    if(r.restart)toast("Sačuvano. Promena deluje posle restarta.");
+    await loadCfg(sec==="mreza");status();
+  }catch(e){toast(e.message,1)}
+  b.disabled=false;
+}));
+
+// ---- pregled fonta
+let pvT=0;
+function preview(){clearTimeout(pvT);pvT=setTimeout(async()=>{
+  try{
+    const j=await api(`/api/render?font=${$("#pvFont").value}&text=${encodeURIComponent($("#pvText").value)}`);
+    const W=+$("#modules").value*8||32;$("#pvCols").textContent=W;
+    const cv=$("#pv"),n=Math.max(j.cols.length,W),s=5;cv.width=n*s+2;cv.height=8*s+2;
+    const x=cv.getContext("2d");x.fillStyle="#111";x.fillRect(0,0,cv.width,cv.height);
+    for(let c=0;c<n;c++)for(let r=0;r<8;r++){x.fillStyle=(j.cols[c]>>r)&1?"#ff3b2f":"#2a1a1a";x.beginPath();x.arc(1+c*s+s/2,1+r*s+s/2,s*.4,0,7);x.fill()}
+    x.strokeStyle="#888";x.strokeRect(.5,.5,W*s+1,8*s+1);
+  }catch(e){}
+},300)}
+$("#pvText").addEventListener("input",preview);$("#pvFont").addEventListener("change",preview);$("#modules").addEventListener("change",preview);
+$("#prikaz").addEventListener("input",e=>{if(e.target.type==="range")updRanges()});
+
+// ---- prioritetna poruka
+$("#prText").addEventListener("input",e=>{$("#prCnt").textContent=enc.encode(e.target.value).length+"/"+meta.msgMax});
+$("#prSend").addEventListener("click",async()=>{try{await api("/api/message",{text:$("#prText").value,seconds:+$("#prSec").value});toast("Poruka je poslata.")}catch(e){toast(e.message,1)}});
+$("#prClear").addEventListener("click",async()=>{try{await api("/api/message",{text:""});toast("Prioritetna poruka je uklonjena.")}catch(e){toast(e.message,1)}});
+
+// ---- režim prikaza
+$("#dmode").addEventListener("change",async e=>{try{await api("/api/action",{cmd:"mode",mode:e.target.value});toast("Režim prikaza je promenjen.");status()}catch(x){toast(x.message,1)}});
+
+// ---- Wi-Fi pretraga
+$("#scan").addEventListener("click",async()=>{
+  $("#nets").innerHTML='<p class="note">Pretraga...</p>';
+  try{
+    let j=await api("/api/scan?start=1");
+    for(let i=0;i<15&&j.scanning;i++){await new Promise(r=>setTimeout(r,1000));j=await api("/api/scan")}
+    const n=(j.nets||[]).sort((a,b)=>b.rssi-a.rssi);
+    $("#nets").innerHTML=n.length?n.map(x=>`<div data-ssid="${esc(x.ssid)}">${esc(x.ssid)} <span class="note">${x.rssi} dBm${x.open?" · otvorena":""}</span></div>`).join(""):'<p class="note">Nije pronađena nijedna mreža.</p>';
+  }catch(e){$("#nets").innerHTML="";toast(e.message,1)}
+});
+$("#nets").addEventListener("click",e=>{const d=e.target.closest("[data-ssid]");if(d){$("#ssid").value=d.dataset.ssid;$("#wpass").focus()}});
+
+// ---- sistem
+$$("[data-cmd]").forEach(b=>b.addEventListener("click",async()=>{
+  const c=b.dataset.cmd;
+  if(c==="factory"&&!confirm("Obrisati sva podešavanja, uključujući Wi-Fi, i restartovati?"))return;
+  if(c==="restart"&&!confirm("Restartovati uređaj?"))return;
+  try{await api("/api/action",{cmd:c});toast(c==="test"?"Test ekran je pokrenut.":c==="portal"?"Pristupna tačka je pokrenuta.":"Uređaj se restartuje...")}catch(e){toast(e.message,1)}
+}));
+$("#admSet").addEventListener("click",async()=>{
+  const p=$("#adm").value;if(!p){toast("Unesite lozinku.",1);return}
+  try{await api("/api/config?save=1",{net:{adminPass:p}});$("#adm").value="";toast("Lozinka je postavljena. Pregledač će tražiti prijavu (korisnik admin).");loadCfg()}catch(e){toast(e.message,1)}
+});
+$("#admClr").addEventListener("click",async()=>{
+  if(!confirm("Ukloniti zaštitu lozinkom?"))return;
+  try{await api("/api/config?save=1",{net:{adminPassClear:true}});toast("Zaštita je uklonjena.");loadCfg()}catch(e){toast(e.message,1)}
+});
+$("#exp").addEventListener("click",async()=>{
+  try{const c=await api("/api/config");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(c,null,1)],{type:"application/json"}));a.download="matrixclock-config.json";a.click()}catch(e){toast(e.message,1)}
+});
+$("#imp").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const c=JSON.parse(await f.text());if(c.net){delete c.net.ssid;delete c.net.passSet;delete c.net.adminPassSet}
+    await api("/api/config?save=1",c);toast("Podešavanja su učitana i sačuvana.");loadCfg()}catch(x){toast(x.message||"neispravan fajl",1)}
+  e.target.value="";
+});
+
+// ---- stanje
+function row(k,v,cls){return`<tr><td>${k}</td><td${cls?` class="${cls}"`:""}>${v}</td></tr>`}
+async function status(){
+  let s;try{s=await api("/api/status")}catch(e){$("#clock").textContent="offline";return}
+  $("#clock").textContent=s.time||"--:--";
+  const w=s.wifi,y=s.sys,d=s.disp;
+  $("#st").innerHTML=
+    row("Vreme",(s.time||"—")+" "+(s.date||""))+
+    row("NTP",s.ntp+(s.ntpAge>=0?` (pre ${Math.round(s.ntpAge/60)} min)`:""),s.ntpOk?"ok":"warn")+
+    row("Wi-Fi",w.state+(w.ok?` · ${esc(w.ssid)} · ${w.rssi} dBm`:""),w.ok?"ok":"warn")+
+    row("IP adresa",w.ip?`${w.ip} · ${esc(w.host)}.local`:"—")+
+    row("Pristupna tačka",s.portal.on?"aktivna: "+esc(s.portal.ssid):"ugašena",s.portal.on?"warn":"")+
+    row("MQTT",!s.mqtt.on?"isključen":s.mqtt.state+(s.mqtt.err?" — "+esc(s.mqtt.err):""),!s.mqtt.on?"":s.mqtt.ok?"ok":"warn")+
+    row("Na ekranu",d.item+` · osvetljaj ${d.bright}`+(d.on?"":" · matrica ugašena"));
+  $("#dg").innerHTML=
+    row("Firmware",s.fw)+row("Uptime",fmtUp(y.uptime))+row("Razlog poslednjeg restarta",esc(y.reset))+
+    row("Slobodan heap",`${y.heap} B (najmanje ${y.heapMin} B)`,y.heapMin<8000?"err":"")+
+    row("Najveći slobodan blok / fragmentacija",`${y.maxBlock} B / ${y.frag} %`)+
+    row("Najduži prolaz petlje",y.loopMax+" ms",y.loopMax>500?"warn":"")+
+    row("Wi-Fi neuspeli pokušaji / prekidi",`${w.fails} / ${w.disc}`)+
+    row("MQTT povezivanja / neuspeli pokušaji",`${s.mqtt.connects} / ${s.mqtt.fails}`+(s.mqtt.age>=0?` · poslednje pre ${Math.round(s.mqtt.age/60)} min`:""))+
+    row("Matrica",`${d.modules} modula (${d.modules*8} kolona), tip ${d.hw}`)+
+    row("NTP sinhronizacija",s.ntpCount+" puta")+
+    row("MAC / čip",`${w.mac} / ${y.chip}`)+
+    row("Flash / firmware / slobodno za OTA",`${y.flash>>20} MB / ${Math.round(y.sketch/1024)} KB / ${Math.round(y.sketchFree/1024)} KB`);
+  if(document.activeElement!==$("#dmode"))$("#dmode").value=d.mode;
+  $("#bDirty").style.display=y.dirty?"block":"none";
+  $("#bRestart").style.display=y.restart?"block":"none";
+  const ce=$("#bCfgErr");ce.style.display=y.cfgErr?"block":"none";ce.textContent="Greška konfiguracije: "+y.cfgErr+" — rade podrazumevane vrednosti.";
+}
+function schedule(){clearInterval(stTimer);if(!document.hidden&&$("#pregled").classList.contains("on"))stTimer=setInterval(status,5000)}
+document.addEventListener("visibilitychange",schedule);
+
+// ---- tabovi i učitavanje
+$("#tabs").addEventListener("click",e=>{
+  const t=e.target.dataset.t;if(!t)return;
+  $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  $$("section").forEach(s=>s.classList.toggle("on",s.id===t));
+  schedule();if(t==="pregled")status();
+});
+async function loadCfg(netOnly){
+  cfg=await api("/api/config");
+  if(netOnly){fillSection("mreza",cfg);return}
+  ["prikaz","poruke","vreme","mreza","mqtt"].forEach(s=>fillSection(s,cfg));
+  $("#wpass").placeholder=cfg.net.passSet?"nepromenjena":"";
+  $("#mqpass").placeholder=cfg.mqtt.passSet?"nepromenjena":"";
+  $$(".tb").forEach(e=>e.textContent=cfg.mqtt.base);
+  $("#bAdmin").style.display=cfg.net.adminPassSet?"none":"block";
+}
+(async()=>{
+  try{
+    meta=await api("/api/meta");
+    $("#hw").innerHTML=HW.map((h,i)=>`<option value="${i}">${h}</option>`).join("");
+    let mo="";for(let n=meta.modMin;n<=meta.modMax;n++)mo+=`<option value="${n}">${n} (${n*8} kolona)</option>`;$("#modules").innerHTML=mo;
+    initHm();
+    $("#timeFont").innerHTML=meta.fonts.map((f,i)=>i?`<option value="${i}">${f}</option>`:"").join("");
+    $("#pvFont").innerHTML=meta.fonts.map((f,i)=>`<option value="${i}">${f}</option>`).join("");
+    $("#tzSel").innerHTML=TZ.map((z,i)=>`<option value="${i}">${z[0]}</option>`).join("")+'<option value="x">Drugo (POSIX zapis)</option>';
+    await loadCfg();await status();schedule();
+  }catch(e){toast(e.message,1)}
+})();
+</script>
+</body>
+</html>

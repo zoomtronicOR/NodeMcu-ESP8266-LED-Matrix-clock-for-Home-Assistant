@@ -1,0 +1,13 @@
+# PlatformIO
+.pio/
+.vscode/
+
+# generiše se pri svakom buildu (tools/gen_fonts.py, tools/embed_web.py)
+src/generated/
+
+__pycache__/
+*.pyc
+
+# lokalni dokumenti, ne objavljuju se
+CLAUDE.md
+Matrix_clock_V3_prosirena_specifikacija_finale.md
