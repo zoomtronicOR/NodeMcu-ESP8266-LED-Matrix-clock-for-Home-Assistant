@@ -62,6 +62,11 @@ void configDefaults(Config& c) {
   c.mqtt.discovery = true;
   strlcpySafe(c.mqtt.discPrefix, "homeassistant", sizeof(c.mqtt.discPrefix));
   c.mqtt.teleSeconds = 120;
+
+  c.sens.type = 0;  // nijedan
+  c.sens.dhtPin = 16;
+  c.sens.interval = 30;
+  c.sens.showTemp = c.sens.showHum = c.sens.showPress = true;
 }
 
 // ---------------------------------------------------------------- validacija
@@ -125,6 +130,16 @@ void getStr(JsonObjectConst o, const char* key, char* dst, size_t size, Ctx& ctx
   const char* s = v.as<const char*>();
   if (strlen(s) >= size) return ctx.fail(key, F("predugačko"));
   strlcpySafe(dst, s, size);
+}
+
+// broj sa jednom decimalom -> desetinke (npr. -1.5 -> -15)
+void getTenths(JsonObjectConst o, const char* key, float lo, float hi, int16_t& dst, Ctx& ctx) {
+  JsonVariantConst v = o[key];
+  if (v.isNull()) return;
+  if (!v.is<float>()) return ctx.fail(key, F("očekivan broj"));
+  float x = v.as<float>();
+  if (x < lo || x > hi) return ctx.fail(key, F("vrednost van dozvoljenog opsega"));
+  dst = (int16_t)lroundf(x * 10);
 }
 
 template <typename T>
@@ -195,6 +210,13 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   if (!validTopic(m.discPrefix)) ctx.fail("mqtt.discPrefix", F("neispravna tema"));
   if (m.teleSeconds < 30 || m.teleSeconds > 3600) ctx.fail("mqtt.tele", F("opseg 30-3600 s"));
   if (!allPrintable(m.user) || !allPrintable(m.pass)) ctx.fail("mqtt", F("nedozvoljeni znakovi"));
+  const SensorConfig& s = c.sens;
+  if (s.type > 3) ctx.fail("sens.type", F("nepoznat senzor"));
+  if (s.dhtPin != 16 && s.dhtPin != 5 && s.dhtPin != 4) ctx.fail("sens.dhtPin", F("dozvoljeni su D0, D1 i D2"));
+  if (s.interval < 10 || s.interval > 3600) ctx.fail("sens.interval", F("opseg 10-3600 s"));
+  if (s.tOffset < -100 || s.tOffset > 100) ctx.fail("sens.tOff", F("opseg -10 do +10 °C"));
+  if (s.hOffset < -200 || s.hOffset > 200) ctx.fail("sens.hOff", F("opseg -20 do +20 %"));
+
   if (m.enabled) {
     if (!m.host[0]) ctx.fail("mqtt.host", F("unesite adresu brokera"));
     if (m.port == 0) ctx.fail("mqtt.port", F("opseg 1-65535"));
@@ -273,6 +295,16 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   mq["disc"] = c.mqtt.discovery;
   mq["discPrefix"] = c.mqtt.discPrefix;
   mq["tele"] = c.mqtt.teleSeconds;
+
+  JsonObject se = o["sens"].to<JsonObject>();
+  se["type"] = c.sens.type;
+  se["dhtPin"] = c.sens.dhtPin;
+  se["interval"] = c.sens.interval;
+  se["tOff"] = c.sens.tOffset / 10.0f;
+  se["hOff"] = c.sens.hOffset / 10.0f;
+  se["showT"] = c.sens.showTemp;
+  se["showH"] = c.sens.showHum;
+  se["showP"] = c.sens.showPress;
 }
 
 void configToJson(const Config& c, JsonObject o) { toJson(c, o, false); }
@@ -344,21 +376,31 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getInt(d, "dir", 0, SCROLL_DOWN, c.scrollDir, ctx);
     getInt(d, "tSec", 3, 250, c.timeSeconds, ctx);
     getInt(d, "iSec", 1, 60, c.infoSeconds, ctx);
+    // starija šema ima manje stranica: nove se dodaju na kraj redosleda, uključene
     JsonArrayConst order = d["order"];
     if (!order.isNull()) {
-      if (order.size() != PAGE_COUNT) ctx.fail("order", F("pogrešan broj stranica"));
-      else
-        for (uint8_t i = 0; i < PAGE_COUNT; i++) {
+      size_t n = order.size();
+      if (n == 0 || n > PAGE_COUNT) ctx.fail("order", F("pogrešan broj stranica"));
+      else {
+        uint8_t seen = 0;
+        for (uint8_t i = 0; i < n; i++) {
           long v = order[i].is<long>() ? order[i].as<long>() : -1;
-          if (v < 0 || v >= PAGE_COUNT) ctx.fail("order", F("nepoznata stranica"));
-          else c.pageOrder[i] = (uint8_t)v;
+          if (v < 0 || v >= PAGE_COUNT || (seen & (1 << v))) {
+            ctx.fail("order", F("nepoznata ili ponovljena stranica"));
+            break;
+          }
+          c.pageOrder[i] = (uint8_t)v;
+          seen |= 1 << v;
         }
+        for (uint8_t p = 0, i = n; p < PAGE_COUNT && i < PAGE_COUNT; p++)
+          if (!(seen & (1 << p))) c.pageOrder[i++] = p;
+      }
     }
     JsonArrayConst pages = d["pages"];
     if (!pages.isNull()) {
-      if (pages.size() != PAGE_COUNT) ctx.fail("pages", F("pogrešan broj stranica"));
+      if (pages.size() == 0 || pages.size() > PAGE_COUNT) ctx.fail("pages", F("pogrešan broj stranica"));
       else
-        for (uint8_t i = 0; i < PAGE_COUNT; i++) c.pageEnabled[i] = pages[i] == true;
+        for (uint8_t i = 0; i < PAGE_COUNT; i++) c.pageEnabled[i] = i < pages.size() ? pages[i] == true : true;
     }
   }
 
@@ -386,6 +428,18 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(mq, "disc", c.mqtt.discovery, ctx);
     getStr(mq, "discPrefix", c.mqtt.discPrefix, sizeof(c.mqtt.discPrefix), ctx);
     getInt(mq, "tele", 30, 3600, c.mqtt.teleSeconds, ctx);
+  }
+
+  JsonObjectConst se = o["sens"];
+  if (!se.isNull()) {
+    getInt(se, "type", 0, 3, c.sens.type, ctx);
+    getInt(se, "dhtPin", 0, 16, c.sens.dhtPin, ctx);
+    getInt(se, "interval", 10, 3600, c.sens.interval, ctx);
+    getTenths(se, "tOff", -10, 10, c.sens.tOffset, ctx);
+    getTenths(se, "hOff", -20, 20, c.sens.hOffset, ctx);
+    getBool(se, "showT", c.sens.showTemp, ctx);
+    getBool(se, "showH", c.sens.showHum, ctx);
+    getBool(se, "showP", c.sens.showPress, ctx);
   }
 
   if (!ctx.ok) return false;
@@ -434,7 +488,8 @@ bool configLoad() {
     return false;
   }
   cfg = *tmp;
-  LOG("Konfiguracija učitana (šema %u)", schema);
+  if (schema < CONFIG_SCHEMA) LOG("Konfiguracija prevedena sa šeme %u na %u (važi posle čuvanja)", schema, CONFIG_SCHEMA);
+  else LOG("Konfiguracija učitana (šema %u)", schema);
   return true;
 }
 

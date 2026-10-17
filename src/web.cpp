@@ -13,6 +13,7 @@
 #include "generated/web_index.h"
 #include "mqtt.h"
 #include "net.h"
+#include "sensors.h"
 #include "system.h"
 #include "text.h"
 #include "timesync.h"
@@ -132,6 +133,19 @@ static void handleStatus() {
   m["age"] = mqttLastConnect() ? (long)(time(nullptr) - mqttLastConnect()) : -1;
   m["base"] = cfg.mqtt.base;
 
+  JsonObject se = doc["sens"].to<JsonObject>();
+  se["type"] = sensorActiveType();
+  se["name"] = sensorTypeName(sensorActiveType());
+  se["model"] = sensorModel();
+  se["state"] = sensorStateText();
+  se["age"] = sensorLastOkAgeS();
+  se["reads"] = sensorReadCount();
+  se["errors"] = sensorErrorCount();
+  float v;
+  if (sensorTemperature(v)) se["t"] = serialized(String(v, 1));
+  if (sensorHumidity(v)) se["h"] = serialized(String(v, 1));
+  if (sensorPressure(v)) se["p"] = serialized(String(v, 1));
+
   JsonObject d = doc["disp"].to<JsonObject>();
   d["item"] = displayItemName();
   d["mode"] = displayModeKey(displayMode());
@@ -192,6 +206,7 @@ static void handleConfigPost() {
   res["ok"] = true;
   res["saved"] = save;
   res["restart"] = systemRestartNeeded();
+  res["restarting"] = systemRestartPending();
   sendJson(200, res);
 }
 

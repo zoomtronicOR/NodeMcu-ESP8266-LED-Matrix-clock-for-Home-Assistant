@@ -5,6 +5,8 @@
 //   <base>/status              online/offline (retained, LWT)
 //   <base>/state               {"brightness","mode","on"} (retained, na promenu)
 //   <base>/telemetry           RSSI, uptime, heap, NTP... (na cfg.mqtt.teleSeconds)
+//   <base>/sensor              {"temperature","humidity","pressure"} (retained; pri značajnoj
+//                              promeni ili na cfg.mqtt.teleSeconds; samo validne vrednosti)
 //   <base>/command/brightness  0-15 (ručno, do sledeće smene dan/noć)
 //   <base>/command/message     tekst ili {"text":"...","seconds":60}; prazno = ukloni
 //   <base>/command/display_mode normal | off | dnd

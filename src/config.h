@@ -3,12 +3,12 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-constexpr uint16_t CONFIG_SCHEMA = 1;  // povećati pri nekompatibilnoj promeni strukture
+constexpr uint16_t CONFIG_SCHEMA = 2;  // povećati pri promeni strukture; starije se prevode pri učitavanju
 constexpr uint8_t MSG_COUNT = 6;
 constexpr uint8_t MSG_MAX_LEN = 150;   // bajtova UTF-8 po poruci
-constexpr uint8_t PAGE_COUNT = 4;
+constexpr uint8_t PAGE_COUNT = 5;
 
-enum PageId : uint8_t { PAGE_TIME = 0, PAGE_DATE, PAGE_WEEKDAY, PAGE_MESSAGES };
+enum PageId : uint8_t { PAGE_TIME = 0, PAGE_DATE, PAGE_WEEKDAY, PAGE_MESSAGES, PAGE_SENSOR };
 enum ScrollDir : uint8_t { SCROLL_LEFT = 0, SCROLL_RIGHT, SCROLL_UP, SCROLL_DOWN };
 enum NightMode : uint8_t { NIGHT_DIM = 0, NIGHT_OFF };
 constexpr uint8_t DATE_FORMAT_COUNT = 6;
@@ -29,6 +29,15 @@ struct MqttConfig {
   bool discovery;       // Home Assistant MQTT Discovery
   char discPrefix[25];  // obično "homeassistant"
   uint16_t teleSeconds; // interval telemetrije
+};
+
+struct SensorConfig {
+  uint8_t type;       // SensorType (sensors.h)
+  uint8_t dhtPin;     // GPIO za DHT22: 16 (D0), 5 (D1) ili 4 (D2)
+  uint16_t interval;  // s između očitavanja
+  int16_t tOffset;    // kalibracioni pomak, desetinke °C
+  int16_t hOffset;    // kalibracioni pomak, desetinke %
+  bool showTemp, showHum, showPress;  // šta se prikazuje na stranici "Senzor"
 };
 
 struct Config {
@@ -70,6 +79,7 @@ struct Config {
   Message msgs[MSG_COUNT];
 
   MqttConfig mqtt;
+  SensorConfig sens;
 };
 
 extern Config cfg;

@@ -7,6 +7,7 @@
 #include "app.h"
 #include "config.h"
 #include "net.h"
+#include "sensors.h"
 #include "text.h"
 #include "timesync.h"
 
@@ -14,7 +15,9 @@ constexpr uint32_t STARTUP_DARK_MS = 1500;         // prvo nizak osvetljaj, zati
 constexpr uint32_t PORTAL_INFO_EVERY_MS = 20000;   // koliko često ponoviti uputstvo za portal
 constexpr uint32_t NTP_WARN_EVERY_MS = 3600UL * 1000;
 
-enum Item : uint8_t { IT_NONE, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST };
+enum Item : uint8_t {
+  IT_NONE, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST
+};
 
 static MD_Parola* P = nullptr;
 static uint8_t hwActive = 0;
@@ -30,6 +33,8 @@ static char timeGlyphs[12];  // poslednje prikazano vreme
 static uint8_t pageCursor = 0;
 static bool inMessages = false;
 static uint8_t msgCursor = 0;
+static bool inSensor = false;
+static uint8_t sensorCursor = 0;
 
 static char notice[96];
 static bool noticePending = false;
@@ -198,6 +203,22 @@ static bool startNextMessage() {
   return false;
 }
 
+// vrednosti senzora jedna za drugom; nevalidne ili zastarele se preskaču (nikad NaN na matrici)
+static bool startNextSensorValue() {
+  while (sensorCursor < 3) {
+    uint8_t i = sensorCursor++;
+    float v;
+    char b[24];
+    if (i == 0 && cfg.sens.showTemp && sensorTemperature(v)) snprintf_P(b, sizeof(b), PSTR("%.1f°C"), v);
+    else if (i == 1 && cfg.sens.showHum && sensorHumidity(v)) snprintf_P(b, sizeof(b), PSTR("%.0f%%"), v);
+    else if (i == 2 && cfg.sens.showPress && sensorPressure(v)) snprintf_P(b, sizeof(b), PSTR("%.0f hPa"), v);
+    else continue;
+    startUtf8(IT_SENSOR, b, FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+    return true;
+  }
+  return false;
+}
+
 static bool startPage(uint8_t page) {
   switch (page) {
     case PAGE_TIME:
@@ -216,6 +237,10 @@ static bool startPage(uint8_t page) {
       inMessages = true;
       msgCursor = 0;
       return startNextMessage();
+    case PAGE_SENSOR:
+      inSensor = true;
+      sensorCursor = 0;
+      return startNextSensorValue();
   }
   return false;
 }
@@ -253,6 +278,10 @@ static void nextItem() {
     if (inMessages) {
       if (!dnd && startNextMessage()) return;
       inMessages = false;
+    }
+    if (inSensor) {
+      if (startNextSensorValue()) return;
+      inSensor = false;
     }
     uint8_t page = cfg.pageOrder[pageCursor];
     pageCursor = (pageCursor + 1) % PAGE_COUNT;
@@ -360,7 +389,7 @@ void displayBegin() {
 
 void displayApplyConfig() {
   if (startupDone) updateBrightness(true);
-  inMessages = false;
+  inMessages = inSensor = false;
   pageCursor = 0;
   if (item != IT_TEST) nextItem();
 }
@@ -452,7 +481,7 @@ bool displayModeFromKey(const char* key, DisplayMode& out) {
 void displayShowPage(uint8_t page) {
   if (page >= PAGE_COUNT) return;
   forcedPage = page;
-  inMessages = false;
+  inMessages = inSensor = false;
   if (item != IT_TEST) nextItem();
 }
 
@@ -472,6 +501,7 @@ const char* displayItemName() {
     case IT_DATE: return "datum";
     case IT_WEEKDAY: return "dan u nedelji";
     case IT_MESSAGE: return "poruka";
+    case IT_SENSOR: return "senzor";
     case IT_NOTICE: return "obaveštenje";
     case IT_PRIORITY: return "prioritetna poruka";
     case IT_PORTAL: return "uputstvo za Wi-Fi";

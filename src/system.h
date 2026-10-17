@@ -14,3 +14,4 @@ bool systemApplyConfig(const Config& next, bool save);
 
 bool systemConfigDirty();    // primenjeno, ali nije sačuvano
 bool systemRestartNeeded();  // promena koja deluje tek posle restarta
+bool systemRestartPending(); // restart je zakazan

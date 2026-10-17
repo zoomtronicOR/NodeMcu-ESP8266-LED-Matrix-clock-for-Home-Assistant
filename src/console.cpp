@@ -10,6 +10,7 @@
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "sensors.h"
 #include "system.h"
 #include "timesync.h"
 
@@ -37,6 +38,14 @@ static void printStatus() {
   Serial.printf_P(PSTR("MQTT: %s%s%s, povezivanja %lu, neuspeha %lu\n"), mqttStateText(),
                   mqttLastError()[0] ? " — " : "", mqttLastError(), (unsigned long)mqttConnectCount(),
                   (unsigned long)mqttFailCount());
+  float sT, sH, sP;
+  bool hasT = sensorTemperature(sT), hasH = sensorHumidity(sH), hasP = sensorPressure(sP);
+  Serial.printf_P(PSTR("Senzor: %s %s — %s"), sensorTypeName(sensorActiveType()), sensorModel(), sensorStateText());
+  if (hasT) Serial.printf_P(PSTR(", %.1f °C"), sT);
+  if (hasH) Serial.printf_P(PSTR(", %.1f %%"), sH);
+  if (hasP) Serial.printf_P(PSTR(", %.1f hPa"), sP);
+  Serial.printf_P(PSTR(" (očitavanja %lu, grešaka %lu)\n"), (unsigned long)sensorReadCount(),
+                  (unsigned long)sensorErrorCount());
   if (configError[0]) Serial.printf_P(PSTR("Greška konfiguracije: %s\n"), configError);
 }
 

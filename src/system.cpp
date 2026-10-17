@@ -4,6 +4,7 @@
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "sensors.h"
 #include "timesync.h"
 
 static uint32_t restartAt = 0;
@@ -35,6 +36,8 @@ bool systemApplyConfig(const Config& next, bool save) {
   bool timeChanged = strcmp(next.tz, cfg.tz) != 0 || memcmp(next.ntp, cfg.ntp, sizeof(cfg.ntp)) != 0;
   // ime uređaja ulazi u Discovery (naziv uređaja u Home Assistantu)
   bool mqttChanged = mqttConfigChanged(next.mqtt, cfg.mqtt) || strcmp(next.hostname, cfg.hostname) != 0;
+  bool sensorChanged = next.sens.type != cfg.sens.type ||
+                       (next.sens.type == SENSOR_DHT22 && next.sens.dhtPin != cfg.sens.dhtPin);
   cfg = next;
   bool ok = true;
   if (save) {
@@ -47,12 +50,21 @@ bool systemApplyConfig(const Config& next, bool save) {
   displayApplyConfig();
   if (wifiChanged) netReconnectNow();
   if (mqttChanged) mqttApplyConfig();
+  // drugi senzor = drugi pinovi/magistrala: najpouzdanije je čisto pokretanje
+  if (save && ok && sensorChanged) {
+    LOG("Senzor promenjen u '%s' — restart", sensorTypeName(cfg.sens.type));
+    systemRestart(1500);
+  }
   return ok;
 }
 
 bool systemConfigDirty() { return dirty; }
 
+bool systemRestartPending() { return restartPending; }
+
 bool systemRestartNeeded() {
+  if (cfg.sens.type != sensorActiveType() || (cfg.sens.type == SENSOR_DHT22 && cfg.sens.dhtPin != sensorActivePin()))
+    return true;
   return cfg.hwType != displayHwTypeActive() || cfg.modules != displayModulesActive() ||
          (bootHostname[0] && strcmp(bootHostname, cfg.hostname) != 0);
 }

@@ -8,6 +8,7 @@
 #include "diag.h"
 #include "display.h"
 #include "net.h"
+#include "sensors.h"
 #include "system.h"
 #include "timesync.h"
 
@@ -35,6 +36,7 @@ static char uid[24];
 static char topicStatus[48];
 static char topicState[48];
 static char topicTele[48];
+static char topicSensor[48];
 static char topicCmd[48];     // <base>/command/
 static char topicCmdSub[48];  // <base>/command/#
 
@@ -56,6 +58,9 @@ static uint32_t lastTele = 0;
 static bool telePending = false;
 static char lastState[96] = "";
 static uint32_t lastStateCheck = 0;
+static uint32_t lastSensorPub = 0;
+static bool sensorPubbed = false;
+static float pubT = 0, pubH = 0, pubP = 0;
 
 static char buf[768];  // zajednički bafer za JSON payload
 static char topicBuf[112];
@@ -181,6 +186,7 @@ static const Entity ENTITIES[] = {
     {"sensor", "rssi"},  {"sensor", "uptime"},     {"sensor", "heap"},  {"sensor", "ntp"},
     {"sensor", "ip"},    {"number", "brightness"}, {"select", "mode"},  {"select", "page"},
     {"text", "message"}, {"button", "test"},       {"button", "restart"},
+    {"sensor", "temperature"}, {"sensor", "humidity"}, {"sensor", "pressure"},
 };
 constexpr uint8_t ENTITY_COUNT = sizeof(ENTITIES) / sizeof(ENTITIES[0]);
 
@@ -294,6 +300,40 @@ static void buildEntity(uint8_t i, JsonDocument& d) {
       d["dev_cla"] = "restart";
       d["ent_cat"] = "config";
       break;
+    case 11:
+      d["name"] = "Temperatura";
+      d["stat_t"] = "~/sensor";
+      d["val_tpl"] = "{{ value_json.temperature }}";
+      d["unit_of_meas"] = "°C";
+      d["dev_cla"] = "temperature";
+      d["stat_cla"] = "measurement";
+      break;
+    case 12:
+      d["name"] = "Vlažnost";
+      d["stat_t"] = "~/sensor";
+      d["val_tpl"] = "{{ value_json.humidity }}";
+      d["unit_of_meas"] = "%";
+      d["dev_cla"] = "humidity";
+      d["stat_cla"] = "measurement";
+      break;
+    case 13:
+      d["name"] = "Pritisak";
+      d["stat_t"] = "~/sensor";
+      d["val_tpl"] = "{{ value_json.pressure }}";
+      d["unit_of_meas"] = "hPa";
+      d["dev_cla"] = "atmospheric_pressure";
+      d["stat_cla"] = "measurement";
+      break;
+  }
+}
+
+// entiteti senzora postoje samo ako ih izabrani senzor podržava
+static bool entityAvailable(uint8_t i) {
+  switch (i) {
+    case 11: return sensorActiveType() != SENSOR_NONE;
+    case 12: return sensorHasHumidity();
+    case 13: return sensorHasPressure();
+    default: return true;
   }
 }
 
@@ -304,7 +344,7 @@ static void discoveryStep() {
   snprintf_P(topicBuf, sizeof(topicBuf), PSTR("%s/%s/%s/%s/config"), cfg.mqtt.discPrefix, e.component, uid,
              e.object);
   bool ok;
-  if (cfg.mqtt.discovery) {
+  if (cfg.mqtt.discovery && entityAvailable(discStep)) {
     JsonDocument d;
     buildEntity(discStep, d);
     ok = publishJson(topicBuf, d, true);
@@ -312,7 +352,7 @@ static void discoveryStep() {
     ok = client.publish(topicBuf, 1, true, "", 0) != 0;
   }
   if (ok && ++discStep == ENTITY_COUNT)
-    LOG("MQTT: Discovery %s (%u entiteta)", cfg.mqtt.discovery ? "objavljen" : "uklonjen", ENTITY_COUNT);
+    LOG("MQTT: Discovery %s", cfg.mqtt.discovery ? "objavljen" : "uklonjen");
 }
 
 // ---------------------------------------------------------------- stanje i telemetrija
@@ -329,6 +369,28 @@ static void publishState(bool force) {
   if (client.publish(topicState, 1, true, tmp, strlen(tmp))) strlcpySafe(lastState, tmp, sizeof(lastState));
 }
 
+// senzor: objava pri značajnoj promeni ili po intervalu telemetrije
+static void publishSensor() {
+  float t = 0, h = 0, p = 0;
+  bool ht = sensorTemperature(t), hh = sensorHumidity(h), hp = sensorPressure(p);
+  if (!ht && !hh && !hp) return;
+  bool changed = !sensorPubbed || (ht && fabsf(t - pubT) >= 0.2f) || (hh && fabsf(h - pubH) >= 1.0f) ||
+                 (hp && fabsf(p - pubP) >= 0.5f);
+  if (!changed && !elapsed(lastSensorPub, cfg.mqtt.teleSeconds * 1000UL)) return;
+  if (!canPublish()) return;
+  JsonDocument d;
+  if (ht) d["temperature"] = serialized(String(t, 1));
+  if (hh) d["humidity"] = serialized(String(h, 1));
+  if (hp) d["pressure"] = serialized(String(p, 1));
+  if (publishJson(topicSensor, d, true)) {
+    sensorPubbed = true;
+    lastSensorPub = millis();
+    pubT = t;
+    pubH = h;
+    pubP = p;
+  }
+}
+
 static void publishTelemetry() {
   JsonDocument d;
   d["rssi"] = WiFi.RSSI();
@@ -339,6 +401,7 @@ static void publishTelemetry() {
   d["ip"] = WiFi.localIP().toString();
   d["fw"] = FW_VERSION;
   d["rejected"] = rejected;
+  d["sensor"] = sensorStateText();
   if (publishJson(topicTele, d, false)) telePending = false;
 }
 
@@ -362,6 +425,7 @@ static void onConnectedEvent() {
   discStep = 0;
   telePending = true;
   lastState[0] = '\0';
+  sensorPubbed = false;
 }
 
 static void onDisconnectedEvent(uint8_t reason) {
@@ -397,6 +461,7 @@ void mqttApplyConfig() {
   snprintf_P(topicStatus, sizeof(topicStatus), PSTR("%s/status"), cfg.mqtt.base);
   snprintf_P(topicState, sizeof(topicState), PSTR("%s/state"), cfg.mqtt.base);
   snprintf_P(topicTele, sizeof(topicTele), PSTR("%s/telemetry"), cfg.mqtt.base);
+  snprintf_P(topicSensor, sizeof(topicSensor), PSTR("%s/sensor"), cfg.mqtt.base);
   snprintf_P(topicCmd, sizeof(topicCmd), PSTR("%s/command/"), cfg.mqtt.base);
   snprintf_P(topicCmdSub, sizeof(topicCmdSub), PSTR("%s/command/#"), cfg.mqtt.base);
 
@@ -476,6 +541,7 @@ void mqttLoop() {
   if (elapsed(lastStateCheck, 1000)) {
     lastStateCheck = millis();
     publishState(false);
+    publishSensor();
   }
   if (telePending || elapsed(lastTele, cfg.mqtt.teleSeconds * 1000UL)) {
     lastTele = millis();

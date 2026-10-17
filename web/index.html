@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Matrični sat</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23FFD400'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23000' stroke-width='5'/%3E%3Cg stroke='%23000' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M32 13v5M32 46v5M13 32h5M46 32h5'/%3E%3Cpath d='M32 32l-10-6M32 32l15-8.5'/%3E%3C/g%3E%3Ccircle cx='32' cy='32' r='3.5'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#f4f5f7;--card:#fff;--fg:#1d2330;--mut:#667085;--line:#d9dde3;--acc:#c0392b;--ok:#1e8e3e;--warn:#b26a00;--err:#c5221f}
 @media(prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--fg:#e6e8eb;--mut:#9aa3af;--line:#343a44;--acc:#ff6b5b;--ok:#4cc26b;--warn:#f0a83a;--err:#ff6b6b}}
@@ -54,7 +55,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <body>
 <header><h1>Matrični sat</h1><span id="clock">--:--</span></header>
 <nav id="tabs">
-<button data-t="pregled" class="on">Pregled</button><button data-t="prikaz">Prikaz</button><button data-t="poruke">Poruke</button><button data-t="vreme">Vreme</button><button data-t="mreza">Mreža</button><button data-t="mqtt">MQTT</button><button data-t="sistem">Sistem</button>
+<button data-t="pregled" class="on">Pregled</button><button data-t="prikaz">Prikaz</button><button data-t="poruke">Poruke</button><button data-t="vreme">Vreme</button><button data-t="mreza">Mreža</button><button data-t="senzori">Senzori</button><button data-t="mqtt">MQTT</button><button data-t="sistem">Sistem</button>
 </nav>
 <main>
 <div class="banner" id="bDirty">Postoje primenjena podešavanja koja nisu sačuvana — posle restarta se gube.</div>
@@ -155,6 +156,24 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button></div>
 </section>
 
+<section id="senzori" data-sec="sens">
+<div class="card"><h2>Senzor</h2><div class="grid">
+<label>Tip senzora<select data-k="sens.type" id="sType"><option value="0">nijedan</option><option value="1">AHT20 / AHT21 (I²C)</option><option value="2">BME280 / BMP280 (I²C)</option><option value="3">DHT22</option></select></label>
+<label id="sPinL">Pin za DHT22<select data-k="sens.dhtPin"><option value="16">D0 (GPIO16)</option><option value="5">D1 (GPIO5)</option><option value="4">D2 (GPIO4)</option></select></label>
+<label>Interval očitavanja (s)<input type="number" min="10" max="3600" data-k="sens.interval"></label>
+</div><p class="note" id="sWire"></p>
+<p class="note">Promena tipa senzora (ili pina za DHT22) posle čuvanja automatski restartuje uređaj. Ako senzor nije povezan ili ne radi, sat radi normalno, a vrednosti se ne prikazuju.</p></div>
+<div class="card"><h2>Kalibracija i prikaz</h2><div class="grid">
+<label>Pomak temperature (°C)<input type="number" min="-10" max="10" step="0.1" data-k="sens.tOff"></label>
+<label>Pomak vlažnosti (%)<input type="number" min="-20" max="20" step="0.1" data-k="sens.hOff"></label>
+<label class="chk"><input type="checkbox" data-k="sens.showT"> Prikaži temperaturu</label>
+<label class="chk"><input type="checkbox" data-k="sens.showH"> Prikaži vlažnost</label>
+<label class="chk"><input type="checkbox" data-k="sens.showP"> Prikaži pritisak</label>
+</div><p class="note">Vrednosti se prikazuju na stranici „Senzor“ (redosled i uključivanje na kartici „Prikaz“).</p></div>
+<div class="card"><h2>Trenutno stanje</h2><table id="sst"></table></div>
+<div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
+</section>
+
 <section id="mqtt" data-sec="mqtt">
 <div class="card"><h2>Broker</h2><div class="grid">
 <label class="chk"><input type="checkbox" data-k="mqtt.on"> MQTT uključen</label>
@@ -194,7 +213,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 "use strict";
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let cfg=null,meta=null,stTimer=0;
-const PAGES=["Vreme","Datum","Dan u nedelji","Poruke"];
+const PAGES=["Vreme","Datum","Dan u nedelji","Poruke","Senzor"];
 const HW=["Generic","FC-16 (najčešći)","Parola","ICStation","DR0 CR0 RR0","DR0 CR0 RR1","DR0 CR1 RR0","DR0 CR1 RR1","DR1 CR0 RR0","DR1 CR0 RR1","DR1 CR1 RR0","DR1 CR1 RR1"];
 const TZ=[["Europe/Belgrade","CET-1CEST,M3.5.0,M10.5.0/3"],["Europe/London","GMT0BST,M3.5.0/1,M10.5.0"],["Europe/Athens","EET-2EEST,M3.5.0/3,M10.5.0/4"],["Europe/Istanbul","<+03>-3"],["Europe/Moscow","MSK-3"],["UTC","UTC0"],["America/New_York","EST5EDT,M3.2.0,M11.1.0"],["America/Chicago","CST6CDT,M3.2.0,M11.1.0"],["America/Los_Angeles","PST8PDT,M3.2.0,M11.1.0"],["Asia/Dubai","<+04>-4"],["Asia/Tokyo","JST-9"],["Australia/Sydney","AEST-10AEDT,M10.1.0,M4.1.0/3"]];
 const enc=new TextEncoder();
@@ -251,9 +270,9 @@ function setHm(el,v){
 function updRanges(){$$("input[type=range]").forEach(r=>{const b=$("#v_"+r.dataset.k.split(".")[1]);if(b)b.textContent=r.value})}
 
 // ---- stranice (redosled + uključeno)
-let order=[0,1,2,3],pagesOn=[true,true,true,true];
+let order=[0,1,2,3,4],pagesOn=[true,true,true,true,true];
 function drawPages(){
-  $("#pages").innerHTML=order.map((p,i)=>`<div class="pg"><input type="checkbox" data-p="${p}" ${pagesOn[p]?"checked":""}><span>${PAGES[p]}</span><button class="btn" data-up="${i}" ${i?"":"disabled"}>↑</button><button class="btn" data-dn="${i}" ${i<3?"":"disabled"}>↓</button></div>`).join("");
+  $("#pages").innerHTML=order.map((p,i)=>`<div class="pg"><input type="checkbox" data-p="${p}" ${pagesOn[p]?"checked":""}><span>${PAGES[p]}</span><button class="btn" data-up="${i}" ${i?"":"disabled"}>↑</button><button class="btn" data-dn="${i}" ${i<order.length-1?"":"disabled"}>↓</button></div>`).join("");
 }
 $("#pages").addEventListener("click",e=>{
   const u=e.target.dataset.up,d=e.target.dataset.dn;
@@ -296,6 +315,7 @@ function fillSection(sec,c){
   fill(s,c);
   if(s.dataset.sec==="disp"){order=c.disp.order.slice();pagesOn=c.disp.pages.slice();drawPages();preview()}
   if(s.dataset.sec==="time")fillTz(c);
+  if(s.dataset.sec==="sens")updSensorUi();
 }
 $$("[data-act]").forEach(b=>b.addEventListener("click",async()=>{
   const sec=b.closest("section").id,act=b.dataset.act;
@@ -303,12 +323,21 @@ $$("[data-act]").forEach(b=>b.addEventListener("click",async()=>{
   b.disabled=true;
   try{
     const r=await api("/api/config"+(act==="save"?"?save=1":""),sectionPayload(sec));
+    if(r.restarting){toast("Sačuvano — uređaj se restartuje...");setTimeout(()=>location.reload(),9000);return}
     toast(act==="save"?"Sačuvano.":"Primenjeno (nije sačuvano).");
     if(r.restart)toast("Sačuvano. Promena deluje posle restarta.");
     await loadCfg(sec==="mreza");status();
   }catch(e){toast(e.message,1)}
   b.disabled=false;
 }));
+
+// ---- senzori
+function updSensorUi(){
+  const t=+$("#sType").value;
+  $("#sPinL").style.display=t===3?"":"none";
+  $("#sWire").textContent=t===1||t===2?"Povezivanje: SDA → D2, SCL → D1, VCC → 3,3 V, GND → GND.":t===3?"Povezivanje: podaci → izabrani pin, VCC → 3,3 V, GND → GND; potreban je pull-up otpornik 10 kΩ na 3,3 V (većina modula ga ima).":"";
+}
+$("#sType").addEventListener("change",updSensorUi);
 
 // ---- pregled fonta
 let pvT=0;
@@ -371,6 +400,11 @@ $("#imp").addEventListener("change",async e=>{
 });
 
 // ---- stanje
+function sensText(n){
+  if(!n.type)return"nije izabran";
+  const v=[n.t!==undefined?n.t+" °C":"",n.h!==undefined?n.h+" %":"",n.p!==undefined?n.p+" hPa":""].filter(Boolean).join(" · ");
+  return esc(n.name)+" — "+(v||esc(n.state));
+}
 function row(k,v,cls){return`<tr><td>${k}</td><td${cls?` class="${cls}"`:""}>${v}</td></tr>`}
 async function status(){
   let s;try{s=await api("/api/status")}catch(e){$("#clock").textContent="offline";return}
@@ -383,6 +417,7 @@ async function status(){
     row("IP adresa",w.ip?`${w.ip} · ${esc(w.host)}.local`:"—")+
     row("Pristupna tačka",s.portal.on?"aktivna: "+esc(s.portal.ssid):"ugašena",s.portal.on?"warn":"")+
     row("MQTT",!s.mqtt.on?"isključen":s.mqtt.state+(s.mqtt.err?" — "+esc(s.mqtt.err):""),!s.mqtt.on?"":s.mqtt.ok?"ok":"warn")+
+    row("Senzor",sensText(s.sens),s.sens.type?(s.sens.t!==undefined?"ok":"warn"):"")+
     row("Na ekranu",d.item+` · osvetljaj ${d.bright}`+(d.on?"":" · matrica ugašena"));
   $("#dg").innerHTML=
     row("Firmware",s.fw)+row("Uptime",fmtUp(y.uptime))+row("Razlog poslednjeg restarta",esc(y.reset))+
@@ -395,12 +430,16 @@ async function status(){
     row("NTP sinhronizacija",s.ntpCount+" puta")+
     row("MAC / čip",`${w.mac} / ${y.chip}`)+
     row("Flash / firmware / slobodno za OTA",`${y.flash>>20} MB / ${Math.round(y.sketch/1024)} KB / ${Math.round(y.sketchFree/1024)} KB`);
+  const n=s.sens;
+  $("#sst").innerHTML=row("Aktivan senzor",esc(n.name)+(n.model?" ("+esc(n.model)+")":""))+row("Stanje",esc(n.state),n.type?(n.t!==undefined?"ok":"warn"):"")+
+    row("Temperatura",n.t!==undefined?n.t+" °C":"—")+row("Vlažnost",n.h!==undefined?n.h+" %":"—")+row("Pritisak",n.p!==undefined?n.p+" hPa":"—")+
+    row("Poslednje očitavanje",n.age>=0?`pre ${n.age} s`:"—")+row("Očitavanja / greške",`${n.reads} / ${n.errors}`);
   if(document.activeElement!==$("#dmode"))$("#dmode").value=d.mode;
   $("#bDirty").style.display=y.dirty?"block":"none";
   $("#bRestart").style.display=y.restart?"block":"none";
   const ce=$("#bCfgErr");ce.style.display=y.cfgErr?"block":"none";ce.textContent="Greška konfiguracije: "+y.cfgErr+" — rade podrazumevane vrednosti.";
 }
-function schedule(){clearInterval(stTimer);if(!document.hidden&&$("#pregled").classList.contains("on"))stTimer=setInterval(status,5000)}
+function schedule(){clearInterval(stTimer);if(!document.hidden&&($("#pregled").classList.contains("on")||$("#senzori").classList.contains("on")))stTimer=setInterval(status,5000)}
 document.addEventListener("visibilitychange",schedule);
 
 // ---- tabovi i učitavanje
@@ -408,12 +447,12 @@ $("#tabs").addEventListener("click",e=>{
   const t=e.target.dataset.t;if(!t)return;
   $$("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   $$("section").forEach(s=>s.classList.toggle("on",s.id===t));
-  schedule();if(t==="pregled")status();
+  schedule();if(t==="pregled"||t==="senzori")status();
 });
 async function loadCfg(netOnly){
   cfg=await api("/api/config");
   if(netOnly){fillSection("mreza",cfg);return}
-  ["prikaz","poruke","vreme","mreza","mqtt"].forEach(s=>fillSection(s,cfg));
+  ["prikaz","poruke","vreme","mreza","senzori","mqtt"].forEach(s=>fillSection(s,cfg));
   $("#wpass").placeholder=cfg.net.passSet?"nepromenjena":"";
   $("#mqpass").placeholder=cfg.mqtt.passSet?"nepromenjena":"";
   $$(".tb").forEach(e=>e.textContent=cfg.mqtt.base);

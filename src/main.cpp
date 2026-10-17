@@ -12,6 +12,7 @@
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "sensors.h"
 #include "system.h"
 #include "timesync.h"
 #include "web.h"
@@ -30,6 +31,7 @@ void setup() {
   }
 
   displayBegin();  // prvo matrica, sa niskim osvetljajem
+  sensorBegin();
   timeBegin();
   netBegin();
   webBegin();
@@ -43,6 +45,7 @@ void loop() {
   netLoop();
   webLoop();
   mqttLoop();
+  sensorLoop();
   consoleLoop();
   systemLoop();
   diagLoop(micros() - t0);
