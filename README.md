@@ -122,3 +122,7 @@ Komande se kucaju na 115200 baud: `help`, `status`, `wifi <ssid>|<lozinka>`, `po
 
 Ako se serijski port otvori jednom, a zatim javlja grešku 31 („A device attached to the system is not functioning“),
 vrati CH340 drajver na verziju 3.4.2014.8 u Device Manageru.
+
+## Licenca
+
+MIT — vidi [LICENSE](LICENSE).
