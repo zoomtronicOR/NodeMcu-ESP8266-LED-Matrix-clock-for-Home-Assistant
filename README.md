@@ -20,6 +20,7 @@ neblokirajuća, a kvar bilo kog podsistema ne zaustavlja prikaz vremena.
   - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (3 s).
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
+- **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
 - **Dijagnostika:** slobodna i najniža memorija, uptime, razlog restarta, najduža petlja, statusi Wi-Fi/NTP/MQTT.
 
@@ -30,8 +31,9 @@ neblokirajuća, a kvar bilo kog podsistema ne zaustavlja prikaz vremena.
 | MAX7219 CLK | D5 | 14 |
 | MAX7219 DIN | D7 | 13 |
 | MAX7219 CS | D6 | 12 |
-| I²C SDA (senzori, kasnije) | D2 | 4 |
-| I²C SCL (senzori, kasnije) | D1 | 5 |
+| I²C SDA (AHT2x, BME280) | D2 | 4 |
+| I²C SCL (AHT2x, BME280) | D1 | 5 |
+| DHT22 podaci (izbor u UI) | D0 / D1 / D2 | 16 / 5 / 4 |
 
 - Matricu napajati sa **5 V** iz dovoljno jakog izvora, ne iz 3,3 V pina NodeMCU ploče. ESP i matrica moraju imati zajedničku masu.
 - Za pouzdan rad preporučuje se pretvarač nivoa 3,3 V → 5 V za SPI linije (npr. 74HCT125).
@@ -69,6 +71,7 @@ Web interfejs je namenjen lokalnoj mreži; ne izlagati ga internetu.
 | `<base>/status` | sat → | `online` / `offline` (retained, LWT) |
 | `<base>/state` | sat → | `{"brightness":4,"mode":"normal","on":true}` (retained) |
 | `<base>/telemetry` | sat → | RSSI, uptime, memorija, NTP status, IP, verzija |
+| `<base>/sensor` | sat → | `{"temperature":22.5,"humidity":45.0,"pressure":1013.2}` (retained, pri promeni) |
 | `<base>/command/brightness` | → sat | `0`–`15` (važi do sledeće smene dan/noć) |
 | `<base>/command/message` | → sat | tekst ili `{"text":"...","seconds":60}`; prazno = ukloni |
 | `<base>/command/display_mode` | → sat | `normal`, `off`, `dnd` |
