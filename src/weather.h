@@ -11,6 +11,7 @@ void weatherRefresh();      // "Osveži sada"
 
 struct WeatherData {
   float temp, feels, wind;  // °C, °C, m/s
+  int16_t windDeg;          // pravac vetra 0-359° (odakle duva), -1 = nije poslat
   uint8_t humidity;         // %
   uint16_t pressure;        // hPa
   char desc[48];            // opis vremena (UTF-8, kako ga šalje server, lang=sr)

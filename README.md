@@ -49,7 +49,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, Senzori, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
 - **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
-- **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, vetar i opis vremena. Detalji su u odeljku [Spoljna temperatura (OpenWeatherMap)](#spoljna-temperatura-openweathermap).
+- **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, brzina i pravac vetra i opis vremena. Detalji su u odeljku [Spoljna temperatura (OpenWeatherMap)](#spoljna-temperatura-openweathermap).
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
 - **OTA ažuriranje:** iz web UI-ja ili preko `espota`, uz proveru signala, mesta i veličine fajla. Neuspelo ažuriranje ostavlja postojeći firmware.
 - **Dijagnostika:** slobodna i najniža memorija, uptime, razlog restarta, najduža petlja, statusi Wi-Fi/NTP/MQTT.
@@ -118,7 +118,7 @@ Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.
    - **Grad**: naziv sa oznakom države (npr. `Beograd,RS`) ili **ID grada** (samo cifre, npr. `792453`). ID je pouzdaniji, a vidi se u adresi stranice grada na openweathermap.org.
    - **Osvežavanje**: 10–180 min, podrazumevano 15.
    - **Natpis na matrici**: podrazumevano „Napolju“. Ako je izabrana ćirilica, prikazuje se ćirilicom.
-   - **Šta se prikazuje**, po checkbox za svaku stavku: temperatura, oseća se, vlažnost, pritisak, vetar, opis vremena.
+   - **Šta se prikazuje**, po checkbox za svaku stavku: temperatura, oseća se, vlažnost, pritisak, brzina vetra, pravac vetra, opis vremena.
 3. Klikni **Sačuvaj**. Sat odmah šalje prvi zahtev, a rezultat se vidi u tabeli ispod podešavanja.
 4. Na kartici **Prikaz → Stranice i redosled** uključi i rasporedi stranicu **„Napolju (OpenWeatherMap)“**.
 
@@ -130,7 +130,7 @@ Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.
 | oseća se | `oseća se 10.2°C` |
 | vlažnost | `72%` |
 | pritisak | `1016 hPa` |
-| vetar | `vetar 3.1 m/s` |
+| vetar (pravac i brzina se biraju posebno) | `vetar SZ 3.1 m/s` (pravac: S, SI, I, JI, J, JZ, Z, SZ) |
 | opis vremena | `slaba kiša` (server šalje opis na srpskom, a sat ga prikazuje izabranim pismom) |
 
 Decimalna tačka prati izbor „Tačke u datumu i temperaturi“ na kartici Vreme. Ako vrednosti nema ili je

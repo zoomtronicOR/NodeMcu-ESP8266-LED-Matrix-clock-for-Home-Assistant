@@ -346,6 +346,7 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   ow["showH"] = c.owm.showHum;
   ow["showP"] = c.owm.showPress;
   ow["showW"] = c.owm.showWind;
+  ow["showWD"] = c.owm.showWindDir;
   ow["showD"] = c.owm.showDesc;
 }
 
@@ -503,6 +504,7 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(ow, "showH", c.owm.showHum, ctx);
     getBool(ow, "showP", c.owm.showPress, ctx);
     getBool(ow, "showW", c.owm.showWind, ctx);
+    getBool(ow, "showWD", c.owm.showWindDir, ctx);
     getBool(ow, "showD", c.owm.showDesc, ctx);
     JsonVariantConst lb = ow["label"];
     if (!lb.isNull()) {

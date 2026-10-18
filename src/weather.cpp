@@ -146,6 +146,7 @@ static void parseResponse() {
   filter["main"]["humidity"] = true;
   filter["main"]["pressure"] = true;
   filter["wind"]["speed"] = true;
+  filter["wind"]["deg"] = true;
   filter["weather"][0]["description"] = true;
   filter["name"] = true;
   JsonDocument doc;
@@ -159,6 +160,8 @@ static void parseResponse() {
   data.humidity = (uint8_t)constrain(doc["main"]["humidity"] | 0, 0, 100);
   data.pressure = (uint16_t)constrain(doc["main"]["pressure"] | 0, 0, 2000);
   data.wind = doc["wind"]["speed"] | 0.0f;
+  JsonVariantConst deg = doc["wind"]["deg"];
+  data.windDeg = deg.is<int>() ? (int16_t)(((deg.as<int>() % 360) + 360) % 360) : -1;
   strlcpySafe(data.desc, doc["weather"][0]["description"] | "", sizeof(data.desc));
   valid = true;
   lastOkMs = millis();

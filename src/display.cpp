@@ -368,10 +368,20 @@ static bool startWeather() {
   }
   if (cfg.owm.showHum) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%u%%"), w.humidity);
   if (cfg.owm.showPress) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%u hPa"), w.pressure);
-  if (cfg.owm.showWind) {
+  bool dir = cfg.owm.showWindDir && w.windDeg >= 0;  // bez vetra server često ne šalje pravac
+  if (cfg.owm.showWind || dir) {
+    // "vetar SZ 3.1 m/s"; pravac i brzina se biraju posebno
     word[0] = '\0';
     appendSys(word, sizeof(word), "vetar");
-    snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%s %.1f m/s"), word, w.wind);
+    if (dir) {
+      static const char* const DIRS[8] = {"S", "SI", "I", "JI", "J", "JZ", "Z", "SZ"};
+      size_t l = strlen(word);
+      word[l++] = ' ';
+      word[l] = '\0';
+      appendSys(word, sizeof(word), DIRS[((w.windDeg * 2 + 45) / 90) % 8]);
+    }
+    if (cfg.owm.showWind) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%s %.1f m/s"), word, w.wind);
+    else strlcpySafe(vals[n++], word, sizeof(vals[0]));
   }
   if (cfg.owm.showDesc && w.desc[0]) {  // opis sa servera u pismu koje je izabrano
     if (cfg.cyrillic) latinToCyrillic(w.desc, vals[n++], sizeof(vals[0]));

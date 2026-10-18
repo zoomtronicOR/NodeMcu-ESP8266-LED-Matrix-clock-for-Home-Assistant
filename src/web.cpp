@@ -171,6 +171,7 @@ static void handleStatus() {
     ow["hum"] = wd.humidity;
     ow["press"] = wd.pressure;
     ow["wind"] = serialized(String(wd.wind, 1));
+    ow["deg"] = wd.windDeg;
     ow["desc"] = wd.desc;
   }
 

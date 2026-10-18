@@ -49,7 +49,7 @@ struct WeatherConfig {  // OpenWeatherMap
   char city[49];      // npr. "Beograd,RS"
   uint16_t intervalMin;
   char label[33];     // natpis na matrici, UTF-8 (npr. "Napolju")
-  bool showTemp, showFeels, showHum, showPress, showWind, showDesc;  // šta se prikazuje
+  bool showTemp, showFeels, showHum, showPress, showWind, showWindDir, showDesc;  // šta se prikazuje
 };
 
 struct Config {

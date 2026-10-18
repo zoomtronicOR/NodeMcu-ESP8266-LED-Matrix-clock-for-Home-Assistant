@@ -57,7 +57,7 @@ CONFIG = {
     "mqtt": {"on": True, "host": "192.168.1.10", "port": 1883, "user": "ha_user", "passSet": True,
              "base": "matrix_clock_a1b2", "disc": True, "discPrefix": "homeassistant", "tele": 120},
     "owm": {"on": True, "keySet": True, "city": "Beograd,RS", "interval": 15, "label": "Napolju",
-            "showT": True, "showF": False, "showH": True, "showP": False, "showW": False, "showD": True},
+            "showT": True, "showF": False, "showH": True, "showP": False, "showW": True, "showWD": True, "showD": True},
     "sens": {"type": 2, "dhtPin": 16, "interval": 30, "tOff": -0.5, "hOff": 0, "showT": True, "showH": True,
              "showP": True},
 }
@@ -84,7 +84,7 @@ def status():
                  "errors": 0, "t": 22.4, "h": 46.3, "p": 1013.8},
         "owm": {"on": True, "state": "radi", "err": "", "place": "Belgrade", "age": 420, "ok": 31, "errors": 0, "req": 31,
                 "t": 14.6, "feels": 13.9, "hum": 72, "press": 1016,
-                "wind": 3.1, "desc": "slaba kiša"},
+                "wind": 3.1, "deg": 310, "desc": "slaba kiša"},
         "disp": {"item": "vreme", "mode": "normal", "bright": 6, "on": True, "hw": 1, "modules": 4},
         "sys": {"heap": 33480, "heapMin": 29120, "heapBoot": 39376, "maxBlock": 31200, "frag": 6, "uptime": up,
                 "loopMax": 48, "reset": "Power On", "cfgErr": "", "dirty": False, "restart": False,

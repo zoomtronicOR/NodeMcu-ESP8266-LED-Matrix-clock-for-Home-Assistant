@@ -198,7 +198,8 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label class="chk"><input type="checkbox" data-k="owm.showF"> Oseća se (subjektivna temperatura)</label>
 <label class="chk"><input type="checkbox" data-k="owm.showH"> Vlažnost</label>
 <label class="chk"><input type="checkbox" data-k="owm.showP"> Pritisak</label>
-<label class="chk"><input type="checkbox" data-k="owm.showW"> Vetar</label>
+<label class="chk"><input type="checkbox" data-k="owm.showW"> Brzina vetra</label>
+<label class="chk"><input type="checkbox" data-k="owm.showWD"> Pravac vetra (S, SI, I, JI, J, JZ, Z, SZ)</label>
 <label class="chk"><input type="checkbox" data-k="owm.showD"> Opis vremena (npr. „slaba kiša“)</label>
 </div><table id="owmSt" style="margin-top:12px"></table>
 <div class="btns" style="margin-top:12px"><button class="btn" id="owmNow">Osveži sada</button></div>
@@ -488,6 +489,7 @@ $("#fwUp").addEventListener("click",()=>{
 });
 
 // ---- stanje
+const compass=d=>["S","SI","I","JI","J","JZ","Z","SZ"][Math.floor((d*2+45)/90)%8];
 function sensText(n){
   if(!n.type)return"nije izabran";
   const v=[n.t!==undefined?n.t+" °C":"",n.h!==undefined?n.h+" %":"",n.p!==undefined?n.p+" hPa":""].filter(Boolean).join(" · ");
@@ -539,7 +541,7 @@ async function status(){
   const o=s.owm;
   $("#owmSt").innerHTML=row("Stanje",esc(o.state),!o.on?"":o.t!==undefined?"ok":"warn")+
     row("Poslednje očitavanje",o.t!==undefined?`${esc(o.place)} · pre ${Math.round(o.age/60)} min`:"—")+
-    (o.t!==undefined?row("Vrednosti",`${o.t} °C (oseća se ${o.feels} °C) · ${o.hum} % · ${o.press} hPa · vetar ${o.wind} m/s · ${esc(o.desc)}`):"")+
+    (o.t!==undefined?row("Vrednosti",`${o.t} °C (oseća se ${o.feels} °C) · ${o.hum} % · ${o.press} hPa · vetar ${o.deg>=0?compass(o.deg)+" ":""}${o.wind} m/s${o.deg>=0?` (${o.deg}°)`:""} · ${esc(o.desc)}`):"")+
     (o.err?row("Poslednja greška",esc(o.err),"err"):"")+row("Zahteva od pokretanja",`${o.req} (uspešnih ${o.ok}, neuspelih ${o.errors}) · najviše 1 u minuti`);
   if(document.activeElement!==$("#dmode"))$("#dmode").value=d.mode;
   $("#bDirty").style.display=y.dirty?"block":"none";
