@@ -106,7 +106,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label>Broj modula 8×8 u lancu<select data-k="disp.modules" id="modules"></select></label>
 <label>Tip modula (orijentacija)<select data-k="disp.hw" id="hw"></select></label>
 <label>Font sata<select data-k="disp.timeFont" id="timeFont"></select></label>
-</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font.</p></div>
+</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font. Font sata se primenjuje odmah po izboru; kliknite „Sačuvaj“ da ostane i posle restarta.</p></div>
 
 <div class="card"><h2>Pregled fonta</h2><div class="grid">
 <label>Probni tekst<input type="text" id="pvText" maxlength="40" value="Čačak 12:34 Ђурђевдан"></label>
@@ -360,6 +360,8 @@ function preview(){clearTimeout(pvT);pvT=setTimeout(async()=>{
     x.strokeStyle="#888";x.strokeRect(.5,.5,W*s+1,8*s+1);
   }catch(e){}
 },300)}
+// font sata se vidi tek na matrici: primeni odmah po izboru (Sačuvaj ga čuva trajno)
+$("#timeFont").addEventListener("change",()=>$("#prikaz [data-act=apply]").click());
 $("#pvText").addEventListener("input",preview);$("#pvFont").addEventListener("change",preview);$("#modules").addEventListener("change",preview);
 $("#prikaz").addEventListener("input",e=>{if(e.target.type==="range")updRanges()});
 
