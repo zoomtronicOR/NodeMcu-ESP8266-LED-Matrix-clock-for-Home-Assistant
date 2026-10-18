@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 #define FW_VERSION "3.1.0"
-#define FW_BUILD __DATE__ " " __TIME__
+extern const char FW_BUILD[];  // vreme builda (src/build_info.cpp)
 
 // MAX7219 (softverski SPI) — D5/D7/D6 ostavljaju D1/D2 slobodnim za I²C
 constexpr uint8_t PIN_MAX_CLK = 14;  // D5
