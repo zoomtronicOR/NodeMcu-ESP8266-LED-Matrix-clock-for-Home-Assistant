@@ -165,6 +165,22 @@ prestara (posle tri propuštena osvežavanja, a najmanje 1 h), stranica se presk
 | `<base>/command/page` | → sat | `time`, `date`, `weekday`, `messages`, `sensor`, `weather` |
 | `<base>/command/test`, `<base>/command/restart` | → sat | bilo koji sadržaj |
 
+### Poruka iz Home Assistanta
+
+Primer akcije u automatizaciji: poruka se odmah prikazuje i traje 120 s.
+
+```yaml
+actions:
+  - action: mqtt.publish
+    data:
+      topic: matrix_clock_xxxx/command/message
+      payload: '{"text":"Neko je na vratima!","seconds":120}'
+```
+
+Više primera ima u **[docs/home-assistant.md](docs/home-assistant.md)**: entitet „Poruka“,
+skripta za višekratnu upotrebu, poruke iz šablona (temperatura, ime osobe), zvono na vratima,
+veš mašina, otvoren prozor, podsetnici, noćni režim, gašenje ekrana i izbor stranice.
+
 ## Serijska konzola (oporavak bez mreže)
 
 Komande se kucaju na 115200 baud: `help`, `status`, `wifi <ssid>|<lozinka>`, `portal`, `msg <tekst>`, `test`, `restart`, `factory`.
