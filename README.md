@@ -33,18 +33,23 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 ## Mogućnosti
 
 - **Vreme:** 12/24 h, opcione sekunde, trepćuća dvotačka, 3 fonta sata sa ciframa iste širine. NTP sa 3 servera, vremenska zona sa automatskim letnjim računanjem vremena. Bez mreže vreme nastavlja iz internog sata.
+  - Izgled dvotačke se bira: 1+1, 2+2 ili 4+4 piksela.
+  - Animacija cifara: cifra koja se promeni otkotrlja se nagore ili nadole. Sati, minuti i sekunde se biraju posebno.
+  - Na 3 modula vreme se prikazuje uskim fontom, bez sekundi.
+- **Datum:** 6 formata. Veličina tačaka u datumu i temperaturi se bira: 1, 2 ili 4 piksela. Brojčani datum može uskim ciframa.
 - **Srpski tekst:** `č ć ž š đ` i ćirilica (UTF-8). Nazivi dana i meseci se biraju latinicom ili ćirilicom. Nepodržani znakovi se prikazuju kao □.
 - **Prikaz:**
-  - Rotacija stranica (vreme, datum, dan, do 6 poruka), sa podesivim redosledom i trajanjem.
+  - Rotacija stranica (vreme, datum, dan, poruke, senzor, napolju), sa podesivim redosledom i trajanjem.
   - Skrolovanje levo/desno/gore/dole. Kratak tekst stoji mirno.
   - Prioritetne poruke sa vremenom isteka.
+  - Pri pokretanju jedan piksel obilazi obod matrice dok se vreme ne sinhronizuje.
 - **Osvetljaj:** dnevni i noćni nivo, gornja granica, noćni režim (smanji ili ugasi) po rasporedu i režim „ne uznemiravaj“.
 - **Wi-Fi:**
   - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (3 s).
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
-- **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
+- **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, Senzori, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
 - **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
-- **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, vetar i opis vremena. Unose se API ključ i grad ili ID grada. Zahtev je asinhron, preko HTTP-a.
+- **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, vetar i opis vremena. Detalji su u odeljku [Spoljna temperatura (OpenWeatherMap)](#spoljna-temperatura-openweathermap).
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
 - **OTA ažuriranje:** iz web UI-ja ili preko `espota`, uz proveru signala, mesta i veličine fajla. Neuspelo ažuriranje ostavlja postojeći firmware.
 - **Dijagnostika:** slobodna i najniža memorija, uptime, razlog restarta, najduža petlja, statusi Wi-Fi/NTP/MQTT.
@@ -98,6 +103,51 @@ upload fajl sistema.
 4. Na kartici **Sistem** postavi administratorsku lozinku (korisnik `admin`) i promeni lozinku pristupne tačke.
 
 Web interfejs je namenjen lokalnoj mreži; ne izlagati ga internetu.
+
+## Spoljna temperatura (OpenWeatherMap)
+
+Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.org/)-a. Koristi se API
+„Current Weather“ (`/data/2.5/weather`), koji je dostupan uz besplatan nalog.
+
+**Podešavanje:**
+
+1. Napravi besplatan nalog na openweathermap.org i u odeljku **API keys** kopiraj ključ. Novi ključ proradi u roku od oko 2 sata. Do tada server vraća grešku „neispravan API ključ“.
+2. U web UI-ju otvori karticu **Senzori → Spoljna temperatura (OpenWeatherMap)** i popuni polja:
+   - **Uključeno**
+   - **API ključ**: čuva se na satu kao lozinka, ne prikazuje se i ne izvozi u rezervnu kopiju.
+   - **Grad**: naziv sa oznakom države (npr. `Beograd,RS`) ili **ID grada** (samo cifre, npr. `792453`). ID je pouzdaniji, a vidi se u adresi stranice grada na openweathermap.org.
+   - **Osvežavanje**: 10–180 min, podrazumevano 15.
+   - **Natpis na matrici**: podrazumevano „Napolju“. Ako je izabrana ćirilica, prikazuje se ćirilicom.
+   - **Šta se prikazuje**, po checkbox za svaku stavku: temperatura, oseća se, vlažnost, pritisak, vetar, opis vremena.
+3. Klikni **Sačuvaj**. Sat odmah šalje prvi zahtev, a rezultat se vidi u tabeli ispod podešavanja.
+4. Na kartici **Prikaz → Stranice i redosled** uključi i rasporedi stranicu **„Napolju (OpenWeatherMap)“**.
+
+**Na matrici** stranica „Napolju“ prikazuje natpis, pa izabrane stavke jednu za drugom:
+
+| Stavka | Primer |
+|---|---|
+| natpis + temperatura | `Napolju 12.3°C`, ako staje zajedno; inače prvo `Napolju`, pa `12.3°C` |
+| oseća se | `oseća se 10.2°C` |
+| vlažnost | `72%` |
+| pritisak | `1016 hPa` |
+| vetar | `vetar 3.1 m/s` |
+| opis vremena | `slaba kiša` (server šalje opis na srpskom, a sat ga prikazuje izabranim pismom) |
+
+Decimalna tačka prati izbor „Tačke u datumu i temperaturi“ na kartici Vreme. Ako vrednosti nema ili je
+prestara (posle tri propuštena osvežavanja, a najmanje 1 h), stranica se preskače.
+
+**Broj zahteva i besplatni limit:**
+
+- Svaki sat šalje **najviše 1 zahtev u minuti**, bez obzira na razlog: raspored, dugme „Osveži sada“, promena podešavanja ili ponovni pokušaj posle greške. Raniji zahtev se odlaže, a ne odbacuje.
+- Na 15 min to je 96 zahteva dnevno po satu, oko 2.900 mesečno. Besplatni plan za Current Weather dozvoljava 60 poziva u minuti i 1.000.000 mesečno ([cenovnik](https://openweathermap.org/full-price)), pa je i više satova sa istim ključem daleko ispod limita.
+- Posle greške sat ponovo pokušava posle 5 minuta, ili posle intervala osvežavanja ako je kraći.
+- Broj poslatih zahteva od pokretanja vidi se na kartici Senzori.
+
+**Rad bez blokiranja i bezbednost:**
+
+- Zahtev ide asinhrono (ESPAsyncTCP), pa sat ne staje dok čeka server.
+- Greške su opisane u UI-ju: pogrešan ključ, grad nije pronađen, prekoračen limit, server ne odgovara.
+- Zahtev ide preko **HTTP-a, ne HTTPS-a**. TLS na ESP8266 traži oko 20 KB RAM-a, koliko uz ostale funkcije nema. Zato ključ kroz mrežu putuje nešifrovano. Koristi poseban besplatan ključ samo za ovu namenu.
 
 ## MQTT teme
 
