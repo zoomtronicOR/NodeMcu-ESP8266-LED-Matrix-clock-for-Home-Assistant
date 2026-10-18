@@ -16,7 +16,8 @@ constexpr uint32_t PORTAL_INFO_EVERY_MS = 20000;   // koliko često ponoviti upu
 constexpr uint32_t NTP_WARN_EVERY_MS = 3600UL * 1000;
 
 enum Item : uint8_t {
-  IT_NONE, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST, IT_HOLD
+  IT_NONE, IT_BOOT, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST,
+  IT_HOLD
 };
 
 static MD_Parola* P = nullptr;
@@ -364,6 +365,59 @@ void displayTest() {
   drawTest();
 }
 
+// ---------------------------------------------------------------- animacija pri pokretanju
+
+// Jedan piksel trči u krug po obodu matrice dok sistem ne bude spreman: vreme sinhronizovano,
+// potrebno uputstvo za Wi-Fi podešavanje, ili najduže BOOT_ANIM_MAX_MS (sat ne zavisi od mreže).
+constexpr uint32_t BOOT_ANIM_MAX_MS = 30000;
+constexpr uint32_t BOOT_STEP_MS = 13;  // krug na 4 modula (76 piksela) ≈ 1 s
+
+static uint16_t bootPos = 0;
+static uint32_t bootStepT = 0;
+static int16_t bootPrevX = -1;
+static uint8_t bootPrevY = 0;
+
+static uint16_t perimeterLen() { return 2 * displayCols + 12; }  // 2·širina + 2·8 − 4 ugla
+
+// i-ta tačka oboda, u smeru kazaljke na satu od gornjeg levog ugla (x = 0 levo, y = 0 gore)
+static void perimeterPoint(uint16_t i, uint16_t& x, uint8_t& y) {
+  uint16_t w = displayCols;
+  if (i < w) { x = i; y = 0; return; }
+  i -= w;
+  if (i < 7) { x = w - 1; y = i + 1; return; }
+  i -= 7;
+  if (i < w - 1) { x = w - 2 - i; y = 7; return; }
+  i -= w - 1;
+  x = 0;
+  y = 6 - i;
+}
+
+static void drawBootPixel() {
+  MD_MAX72XX* mx = P->getGraphicObject();
+  uint16_t x;
+  uint8_t y;
+  perimeterPoint(bootPos, x, y);
+  // kolona 0 je krajnja desna
+  if (bootPrevX >= 0) mx->setPoint(bootPrevY, displayCols - 1 - bootPrevX, false);
+  mx->setPoint(y, displayCols - 1 - x, true);
+  bootPrevX = x;
+  bootPrevY = y;
+}
+
+static void loopBoot() {
+  if (timeValid() || portalActive() || elapsed(bootMs, BOOT_ANIM_MAX_MS)) {
+    P->displayClear();
+    item = IT_NONE;
+    nextItem();
+    return;
+  }
+  if (elapsed(bootStepT, BOOT_STEP_MS)) {
+    bootStepT = millis();
+    bootPos = (bootPos + 1) % perimeterLen();
+    drawBootPixel();
+  }
+}
+
 static void loopTest() {
   if (testPhase == 0 && elapsed(testT0, 2500)) {
     testPhase = 1;
@@ -390,7 +444,9 @@ void displayBegin() {
   brightness = 0;
   bootMs = millis();
   LOG("Prikaz: MAX7219 x%u (%u kolona), tip modula %u", modulesActive, displayCols, hwActive);
-  nextItem();
+  item = IT_BOOT;  // animacija dok sistem ne bude spreman (loopBoot)
+  bootStepT = millis();
+  drawBootPixel();
 }
 
 void displayApplyConfig() {
@@ -425,6 +481,10 @@ void displayLoop() {
     return;
   }
   if (item == IT_HOLD) return;
+  if (item == IT_BOOT) {
+    loopBoot();
+    return;
+  }
 
   bool done = P->displayAnimate();
   if (item == IT_TIME) {
@@ -534,6 +594,7 @@ const char* displayItemName() {
     case IT_PORTAL: return "uputstvo za Wi-Fi";
     case IT_TEST: return "test ekran";
     case IT_HOLD: return "ažuriranje";
+    case IT_BOOT: return "pokretanje";
     default: return "-";
   }
 }
