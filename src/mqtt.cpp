@@ -2,12 +2,12 @@
 
 #include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
-#include <ESP8266WiFi.h>
 
 #include "app.h"
 #include "diag.h"
 #include "display.h"
 #include "net.h"
+#include "platform.h"
 #include "sensors.h"
 #include "system.h"
 #include "timesync.h"
@@ -99,6 +99,8 @@ static bool publishJson(const char* topic, JsonDocument& doc, bool retain) {
 }
 
 // ---------------------------------------------------------------- callback-ovi (asinhroni kontekst)
+// ESP8266: lwIP kontekst; ESP32: zadatak async_tcp (viši prioritet od loop zadatka). U oba
+// slučaja ovde se samo postavljaju zastavice i puni prsten (jedan proizvođač, jedan potrošač).
 
 static void onConnect(bool) { evConnected = true; }
 
@@ -122,6 +124,7 @@ static void onMessage(char* topic, char* payload, AsyncMqttClientMessageProperti
   strlcpySafe(in.cmd, cmd, sizeof(in.cmd));
   memcpy(in.payload, payload, len);
   in.payload[len] = '\0';
+  __sync_synchronize();  // sadržaj upisan pre objave (ESP32: callback je u drugom FreeRTOS zadatku)
   inHead = next;
 }
 
@@ -204,7 +207,7 @@ static void buildEntity(uint8_t i, JsonDocument& d) {
   dev["ids"].to<JsonArray>().add(uid);
   dev["name"] = cfg.hostname;
   char mdl[40];
-  snprintf_P(mdl, sizeof(mdl), PSTR("ESP8266 matrični sat 8x%u"), displayModulesActive() * 8);
+  snprintf_P(mdl, sizeof(mdl), PSTR(CHIP_NAME " matrični sat 8x%u"), displayModulesActive() * 8);
   dev["mdl"] = mdl;
   dev["mf"] = "DIY";
   dev["sw"] = FW_VERSION;
@@ -464,7 +467,7 @@ void mqttApplyConfig() {
   }
   if (st == MQ_CONNECTING) client.disconnect(true);
 
-  snprintf_P(uid, sizeof(uid), PSTR("matrixclock_%06x"), (unsigned)ESP.getChipId());
+  snprintf_P(uid, sizeof(uid), PSTR("matrixclock_%06x"), (unsigned)chipId());
   snprintf_P(topicStatus, sizeof(topicStatus), PSTR("%s/status"), cfg.mqtt.base);
   snprintf_P(topicState, sizeof(topicState), PSTR("%s/state"), cfg.mqtt.base);
   snprintf_P(topicTele, sizeof(topicTele), PSTR("%s/telemetry"), cfg.mqtt.base);

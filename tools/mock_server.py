@@ -62,7 +62,9 @@ CONFIG = {
              "showP": True},
 }
 
-META = {"fonts": [f[0] for f in FONTS], "msgMax": 150, "msgCount": 6, "modMin": 4, "modMax": 16}
+META = {"fonts": [f[0] for f in FONTS], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16,
+        "board": "ESP8266 NodeMCU", "button": "FLASH", "i2c": "SDA → D2, SCL → D1",
+        "dhtPins": [{"v": 16, "n": "D0 (GPIO16)"}, {"v": 5, "n": "D1 (GPIO5)"}, {"v": 4, "n": "D2 (GPIO4)"}]}
 
 NETS = [{"ssid": "MojaMreza", "rssi": -52, "open": False}, {"ssid": "Komšija_5G", "rssi": -78, "open": False},
         {"ssid": "Kafić gost", "rssi": -84, "open": True}]
@@ -88,7 +90,7 @@ def status():
         "disp": {"item": "vreme", "mode": "normal", "bright": 6, "on": True, "hw": 1, "modules": 4},
         "sys": {"heap": 33480, "heapMin": 29120, "heapBoot": 39376, "maxBlock": 31200, "frag": 6, "uptime": up,
                 "loopMax": 48, "reset": "Power On", "cfgErr": "", "dirty": False, "restart": False,
-                "chip": "a1b2c3", "flash": 4194304, "sketch": 512128, "sketchFree": 2633728,
+                "chip": "a1b2c3", "board": "ESP8266 NodeMCU", "flash": 4194304, "sketch": 512128, "sketchFree": 2633728,
                 "otaMax": 2629632, "otaNet": True, "otaRssi": -80, "fsUsed": 24576, "fsTotal": 1024000},
     }
 

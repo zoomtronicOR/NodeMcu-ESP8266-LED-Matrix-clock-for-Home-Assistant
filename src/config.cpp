@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "app.h"
+#include "platform.h"
 
 Config cfg;
 char configError[96] = "";
@@ -18,7 +19,7 @@ constexpr uint8_t TIME_FONT_LAST = 3;
 
 void configDefaults(Config& c) {
   memset(&c, 0, sizeof(c));
-  snprintf_P(c.hostname, sizeof(c.hostname), PSTR("matrixclock-%04x"), (unsigned)(ESP.getChipId() & 0xFFFF));
+  snprintf_P(c.hostname, sizeof(c.hostname), PSTR("matrixclock-%04x"), (unsigned)(chipId() & 0xFFFF));
   strlcpySafe(c.apPass, "matrica123", sizeof(c.apPass));
   c.portalAfterFails = 5;
 
@@ -63,13 +64,13 @@ void configDefaults(Config& c) {
 
   c.mqtt.enabled = false;  // isključen dok korisnik ne unese broker
   c.mqtt.port = 1883;
-  snprintf_P(c.mqtt.base, sizeof(c.mqtt.base), PSTR("matrix_clock_%04x"), (unsigned)(ESP.getChipId() & 0xFFFF));
+  snprintf_P(c.mqtt.base, sizeof(c.mqtt.base), PSTR("matrix_clock_%04x"), (unsigned)(chipId() & 0xFFFF));
   c.mqtt.discovery = true;
   strlcpySafe(c.mqtt.discPrefix, "homeassistant", sizeof(c.mqtt.discPrefix));
   c.mqtt.teleSeconds = 120;
 
   c.sens.type = 0;  // nijedan
-  c.sens.dhtPin = 16;
+  c.sens.dhtPin = DHT_PIN_DEFAULT;
   c.sens.interval = 30;
   c.sens.showTemp = c.sens.showHum = c.sens.showPress = true;
 
@@ -226,7 +227,7 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   if (!allPrintable(m.user) || !allPrintable(m.pass)) ctx.fail("mqtt", F("nedozvoljeni znakovi"));
   const SensorConfig& s = c.sens;
   if (s.type > 3) ctx.fail("sens.type", F("nepoznat senzor"));
-  if (s.dhtPin != 16 && s.dhtPin != 5 && s.dhtPin != 4) ctx.fail("sens.dhtPin", F("dozvoljeni su D0, D1 i D2"));
+  if (!dhtPinAllowed(s.dhtPin)) ctx.fail("sens.dhtPin", F("pin nije dozvoljen na ovoj ploči"));
   if (s.interval < 10 || s.interval > 3600) ctx.fail("sens.interval", F("opseg 10-3600 s"));
   if (s.tOffset < -100 || s.tOffset > 100) ctx.fail("sens.tOff", F("opseg -10 do +10 °C"));
   if (s.hOffset < -200 || s.hOffset > 200) ctx.fail("sens.hOff", F("opseg -20 do +20 %"));
@@ -483,7 +484,9 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
   JsonObjectConst se = o["sens"];
   if (!se.isNull()) {
     getInt(se, "type", 0, 3, c.sens.type, ctx);
-    getInt(se, "dhtPin", 0, 16, c.sens.dhtPin, ctx);
+    getInt(se, "dhtPin", 0, 39, c.sens.dhtPin, ctx);
+    // podešavanja uvezena sa druge ploče (npr. ESP8266 D0 na ESP32-C3): podrazumevani pin ove ploče
+    if (!dhtPinAllowed(c.sens.dhtPin)) c.sens.dhtPin = DHT_PIN_DEFAULT;
     getInt(se, "interval", 10, 3600, c.sens.interval, ctx);
     getTenths(se, "tOff", -10, 10, c.sens.tOffset, ctx);
     getTenths(se, "hOff", -20, 20, c.sens.hOffset, ctx);

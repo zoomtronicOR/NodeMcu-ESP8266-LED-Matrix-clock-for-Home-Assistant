@@ -1,12 +1,16 @@
 #include "net.h"
 
 #include <DNSServer.h>
-#include <ESP8266WiFi.h>
+#if defined(ESP8266)
 #include <ESP8266mDNS.h>
+#else
+#include <ESPmDNS.h>
+#endif
 
 #include "app.h"
 #include "config.h"
 #include "display.h"
+#include "platform.h"
 
 constexpr uint32_t CONNECT_TIMEOUT_MS = 20000;
 constexpr uint32_t BACKOFF_MIN_MS = 5000;
@@ -69,7 +73,7 @@ static void onConnected() {
   failsSinceConnect = 0;
   backoffMs = BACKOFF_MIN_MS;
   String ip = WiFi.localIP().toString();
-  LOG("Wi-Fi: povezan, IP %s, RSSI %d dBm, kanal %d", ip.c_str(), WiFi.RSSI(), WiFi.channel());
+  LOG("Wi-Fi: povezan, IP %s, RSSI %d dBm, kanal %d", ip.c_str(), (int)WiFi.RSSI(), (int)WiFi.channel());
   if (!mdnsStarted && MDNS.begin(cfg.hostname)) {
     MDNS.addService("http", "tcp", 80);
     mdnsStarted = true;
@@ -112,12 +116,19 @@ static void portalStop() {
 }
 
 void netBegin() {
-  snprintf_P(apSsid, sizeof(apSsid), PSTR("MatrixClock-%04X"), (unsigned)(ESP.getChipId() & 0xFFFF));
+  snprintf_P(apSsid, sizeof(apSsid), PSTR("MatrixClock-%04X"), (unsigned)(chipId() & 0xFFFF));
   WiFi.persistent(false);  // podaci su u našoj konfiguraciji; ne trošiti flash SDK-a
   WiFi.setAutoReconnect(false);  // ponovno povezivanje vodi ovaj modul (rastući interval)
+#if defined(ESP32)
+  wifiSetHostname(cfg.hostname);  // ESP32: ime mora biti zadato pre pokretanja Wi-Fi-ja
+#endif
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();  // prekini eventualni auto-connect sa podacima starog firmware-a
-  WiFi.hostname(cfg.hostname);
+#if defined(MATRIX_WIFI_TX_POWER)
+  // neke serije ESP32-C3 SuperMini ploča imaju lošu antenu i ne povezuju se pri punoj snazi
+  WiFi.setTxPower(MATRIX_WIFI_TX_POWER);
+#endif
+  wifiSetHostname(cfg.hostname);
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   if (!cfg.wifiSsid[0]) portalStart("mreža nije podešena");
   else startConnect();
@@ -127,7 +138,7 @@ void netReconnectNow() {
   WiFi.disconnect();
   failsSinceConnect = 0;
   backoffMs = BACKOFF_MIN_MS;
-  WiFi.hostname(cfg.hostname);
+  wifiSetHostname(cfg.hostname);
   startConnect(true);
 }
 
@@ -136,7 +147,7 @@ static void handleButton() {
     if (!buttonDownMs) buttonDownMs = millis() | 1;
     if (!buttonHandled && elapsed(buttonDownMs, BUTTON_HOLD_MS)) {
       buttonHandled = true;
-      portalStart("FLASH taster");
+      portalStart(BUTTON_NAME " taster");
     }
   } else {
     buttonDownMs = 0;
@@ -147,7 +158,9 @@ static void handleButton() {
 void netLoop() {
   static uint32_t lastCheck = 0;
   if (portal) dns.processNextRequest();
-  if (mdnsStarted) MDNS.update();
+#if defined(ESP8266)
+  if (mdnsStarted) MDNS.update();  // ESP32 mDNS radi u svom zadatku
+#endif
   if (!elapsed(lastCheck, 100)) return;
   lastCheck = millis();
 
@@ -157,7 +170,11 @@ void netLoop() {
   switch (sta) {
     case STA_CONNECTING:
       if (st == WL_CONNECTED) onConnected();
+#if defined(ESP8266)
       else if (st == WL_WRONG_PASSWORD) onFailed("pogrešna lozinka");
+#else
+      else if (st == WL_CONNECT_FAILED) onFailed("pogrešna lozinka ili odbijena veza");
+#endif
       else if (elapsed(staT0, CONNECT_TIMEOUT_MS)) onFailed(st == WL_NO_SSID_AVAIL ? "mreža nije pronađena" : "isteklo vreme");
       break;
     case STA_CONNECTED:

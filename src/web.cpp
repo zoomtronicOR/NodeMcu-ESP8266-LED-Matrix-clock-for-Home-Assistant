@@ -1,9 +1,14 @@
 #include "web.h"
 
 #include <ArduinoJson.h>
+#if defined(ESP8266)
 #include <ESP8266WebServer.h>
-#include <ESP8266WiFi.h>
-#include <LittleFS.h>
+using WebServerT = ESP8266WebServer;
+#else
+#include <Update.h>
+#include <WebServer.h>
+using WebServerT = WebServer;
+#endif
 
 #include <memory>
 
@@ -15,6 +20,7 @@
 #include "mqtt.h"
 #include "net.h"
 #include "ota.h"
+#include "platform.h"
 #include "sensors.h"
 #include "system.h"
 #include "text.h"
@@ -25,7 +31,7 @@ constexpr size_t MAX_BODY = 4096;      // najveće prihvaćeno telo zahteva
 constexpr size_t MAX_RENDER_TEXT = 64; // pregled fonta
 constexpr uint16_t MAX_RENDER_COLS = 400;
 
-static ESP8266WebServer server(80);
+static WebServerT server(80);
 
 // stanje web OTA (upload callback se poziva po delovima, pa završni handler)
 static bool otaActive = false;
@@ -33,6 +39,16 @@ static bool otaDone = false;
 static char otaErr[96];
 
 // ---------------------------------------------------------------- pomoćne
+
+static const char* updateError() {
+#if defined(ESP8266)
+  static String e;
+  e = Update.getErrorString();
+  return e.c_str();
+#else
+  return Update.errorString();
+#endif
+}
 
 static bool authorized() {
   if (!cfg.adminPass[0]) return true;
@@ -187,25 +203,26 @@ static void handleStatus() {
   s["heap"] = ESP.getFreeHeap();
   s["heapMin"] = diagHeapMin();
   s["heapBoot"] = diagHeapBoot();
-  s["maxBlock"] = ESP.getMaxFreeBlockSize();
-  s["frag"] = ESP.getHeapFragmentation();
+  s["maxBlock"] = heapMaxBlock();
+  s["frag"] = heapFragmentation();
   s["uptime"] = diagUptimeS();
   s["loopMax"] = diagLoopMaxMs();
   s["reset"] = diagResetReason();
   s["cfgErr"] = configError;
   s["dirty"] = systemConfigDirty();
   s["restart"] = systemRestartNeeded();
-  s["chip"] = String(ESP.getChipId(), HEX);
-  s["flash"] = ESP.getFlashChipRealSize();
-  s["sketch"] = ESP.getSketchSize();
-  s["sketchFree"] = ESP.getFreeSketchSpace();
+  s["chip"] = String(chipId(), HEX);
+  s["board"] = BOARD_NAME;
+  s["flash"] = flashSize();
+  s["sketch"] = sketchSize();
+  s["sketchFree"] = sketchFreeSpace();
   s["otaMax"] = otaMaxSize();
   s["otaNet"] = otaNetworkEnabled();
   s["otaRssi"] = OTA_MIN_RSSI;
-  FSInfo fsi;
-  if (LittleFS.info(fsi)) {
-    s["fsUsed"] = fsi.usedBytes;
-    s["fsTotal"] = fsi.totalBytes;
+  uint32_t fsUsed, fsTotal;
+  if (fsInfo(fsUsed, fsTotal)) {
+    s["fsUsed"] = fsUsed;
+    s["fsTotal"] = fsTotal;
   }
   sendJson(200, doc);
 }
@@ -309,7 +326,7 @@ static void handleScan() {
       JsonObject o = arr.add<JsonObject>();
       o["ssid"] = WiFi.SSID(i);
       o["rssi"] = WiFi.RSSI(i);
-      o["open"] = WiFi.encryptionType(i) == ENC_TYPE_NONE;
+      o["open"] = wifiScanIsOpen(i);
     }
     doc["scanning"] = false;
   }
@@ -342,7 +359,60 @@ static void handleMeta() {
   doc["msgCount"] = MSG_COUNT;
   doc["modMin"] = MODULES_MIN;
   doc["modMax"] = MODULES_MAX;
+  // ploča: nazivi pinova i tastera za UI
+  doc["board"] = BOARD_NAME;
+  doc["button"] = BUTTON_NAME;
+  doc["i2c"] = I2C_WIRING;
+  JsonArray pins = doc["dhtPins"].to<JsonArray>();
+  for (const PinOption& p : DHT_PINS) {
+    JsonObject o = pins.add<JsonObject>();
+    o["v"] = p.gpio;
+    o["n"] = p.name;
+  }
   sendJson(200, doc);
+}
+
+// Oznaka ploče u fajlu koji stiže (FW_TAG = "MCFW-TAG:<čip>;"). Svaki deo se pretražuje PRE
+// upisa, pa se firmware za drugu ploču otkrije najkasnije u poslednjem delu, dok upis još nije
+// završen — Update.end(false) ga tada odbacuje. (ESP8266 bi inače prihvatio ESP32 image: oba
+// počinju bajtom 0xE9. ESP32 sam odbija image za drugi čip.) Fajl bez oznake (stariji firmware
+// ovog projekta) se prihvata.
+static uint8_t tagMatch = 0;  // poklopljenih znakova prefiksa "MCFW-TAG:"
+static int8_t tagLen = -1;    // >= 0: hvata se naziv čipa
+static bool tagDone = false;
+static char tagChip[16];
+
+static void tagReset() {
+  tagMatch = 0;
+  tagLen = -1;
+  tagDone = false;
+  tagChip[0] = '\0';
+}
+
+static void tagScan(const uint8_t* d, size_t n) {
+  static const uint8_t prefixLen = (uint8_t)(strchr(FW_TAG, ':') - FW_TAG + 1);
+  for (size_t i = 0; i < n && !tagDone; i++) {
+    char c = (char)d[i];
+    if (tagLen >= 0) {
+      if (c == ';') {
+        tagChip[tagLen] = '\0';
+        tagDone = true;
+      } else if (c < 0x20 || c > 0x7E || tagLen + 1 >= (int)sizeof(tagChip)) {
+        tagLen = -1;  // nije oznaka, traži dalje
+      } else {
+        tagChip[tagLen++] = c;
+      }
+      continue;
+    }
+    if (c == FW_TAG[tagMatch]) {
+      if (++tagMatch == prefixLen) {
+        tagMatch = 0;
+        tagLen = 0;
+      }
+    } else {
+      tagMatch = c == FW_TAG[0] ? 1 : 0;
+    }
+  }
 }
 
 // delovi fajla stižu redom; Updater piše u slobodan prostor, a bootloader zamenjuje
@@ -353,6 +423,7 @@ static void handleUpdateUpload() {
     case UPLOAD_FILE_START: {
       otaActive = otaDone = false;
       otaErr[0] = '\0';
+      tagReset();
       if (cfg.adminPass[0] && !server.authenticate("admin", cfg.adminPass)) {
         strlcpySafe(otaErr, "potrebna je prijava", sizeof(otaErr));
         return;
@@ -367,7 +438,7 @@ static void handleUpdateUpload() {
       otaWebStart();
       displayHold("OTA");
       if (!Update.begin(size)) {
-        snprintf_P(otaErr, sizeof(otaErr), PSTR("početak nije uspeo: %s"), Update.getErrorString().c_str());
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("početak nije uspeo: %s"), updateError());
         displayResume();
         return;
       }
@@ -376,8 +447,17 @@ static void handleUpdateUpload() {
     }
     case UPLOAD_FILE_WRITE:
       if (!otaActive) return;
+      tagScan(up.buf, up.currentSize);
+      if (tagDone && strcmp(tagChip, CHIP_NAME) != 0) {
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("firmware je za ploču %s, a ovaj sat je %s"), tagChip, CHIP_NAME);
+        LOG("OTA (web): odbijeno — %s", otaErr);
+        Update.end(false);  // upis nije završen: odbacuje se
+        otaActive = false;
+        displayResume();
+        return;
+      }
       if (Update.write(up.buf, up.currentSize) != up.currentSize) {
-        snprintf_P(otaErr, sizeof(otaErr), PSTR("upis nije uspeo: %s"), Update.getErrorString().c_str());
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("upis nije uspeo: %s"), updateError());
         Update.end(false);
         otaActive = false;
         displayResume();
@@ -399,7 +479,7 @@ static void handleUpdateUpload() {
         LOG("OTA (web): uspešno, %u B", (unsigned)up.totalSize);
         displayHold("OTA OK");
       } else {
-        snprintf_P(otaErr, sizeof(otaErr), PSTR("provera nije uspela: %s"), Update.getErrorString().c_str());
+        snprintf_P(otaErr, sizeof(otaErr), PSTR("provera nije uspela: %s"), updateError());
         displayResume();
       }
       break;

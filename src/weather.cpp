@@ -1,7 +1,11 @@
 #include "weather.h"
 
 #include <ArduinoJson.h>
+#if defined(ESP8266)
 #include <ESPAsyncTCP.h>
+#else
+#include <AsyncTCP.h>
+#endif
 
 #include <new>
 
@@ -68,7 +72,11 @@ static void freeRequest() {
     cli->onData(nullptr, nullptr);
     cli->onDisconnect(nullptr, nullptr);
     cli->onError(nullptr, nullptr);
+#if defined(ESP8266)
     if (cli->connected()) cli->close(true);
+#else
+    if (cli->connected()) cli->close();  // AsyncTCP 3.x: close() odmah prekida vezu
+#endif
     delete cli;
     cli = nullptr;
   }

@@ -1,6 +1,10 @@
 #include "timesync.h"
 
+#if defined(ESP8266)
 #include <coredecls.h>  // settimeofday_cb
+#else
+#include <esp_sntp.h>
+#endif
 
 #include "app.h"
 #include "config.h"
@@ -14,8 +18,7 @@ static bool valid = false;
 constexpr uint32_t NTP_FIRST_SYNC_TIMEOUT_MS = 60UL * 1000;  // od povezivanja na Wi-Fi
 constexpr time_t NTP_STALE_S = 3 * 3600;                     // SNTP (lwIP) osvežava na 1 h
 
-static void onTimeSet(bool fromSntp) {
-  if (!fromSntp) return;
+static void onSynced() {
   valid = true;
   lastSync = time(nullptr);
   syncCount++;
@@ -25,15 +28,32 @@ static void onTimeSet(bool fromSntp) {
       lt.tm_mon + 1, lt.tm_year + 1900, lt.tm_hour, lt.tm_min, lt.tm_sec);
 }
 
+#if defined(ESP8266)
+static void onTimeSet(bool fromSntp) {
+  if (fromSntp) onSynced();
+}
+#else
+static void onTimeSync(struct timeval*) { onSynced(); }  // poziva se iz lwIP zadatka
+#endif
+
 void timeApplyConfig() {
   // configTime pamti pokazivače na servere — cfg.ntp je globalan i živi dovoljno dugo
+#if defined(ESP8266)
   configTime(cfg.tz, cfg.ntp[0][0] ? cfg.ntp[0] : nullptr, cfg.ntp[1][0] ? cfg.ntp[1] : nullptr,
              cfg.ntp[2][0] ? cfg.ntp[2] : nullptr);
+#else
+  configTzTime(cfg.tz, cfg.ntp[0][0] ? cfg.ntp[0] : "pool.ntp.org", cfg.ntp[1][0] ? cfg.ntp[1] : nullptr,
+               cfg.ntp[2][0] ? cfg.ntp[2] : nullptr);
+#endif
   LOG("Vremenska zona: %s (%s)", cfg.tzName, cfg.tz);
 }
 
 void timeBegin() {
+#if defined(ESP8266)
   settimeofday_cb(onTimeSet);
+#else
+  sntp_set_time_sync_notification_cb(onTimeSync);
+#endif
   timeApplyConfig();
 }
 

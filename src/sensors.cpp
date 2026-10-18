@@ -1,10 +1,10 @@
 #include "sensors.h"
 
 #include <Wire.h>
-#include <interrupts.h>
 
 #include "app.h"
 #include "config.h"
+#include "platform.h"
 
 constexpr uint8_t AHT_ADDR = 0x38;
 constexpr uint32_t STALE_MIN_MS = 10UL * 60 * 1000;  // posle ovoliko se vrednost više ne prikazuje
@@ -13,7 +13,7 @@ constexpr uint8_t ERRORS_FOR_RECOVERY = 3;           // uzastopne greške -> opo
 enum Phase : uint8_t { PH_IDLE, PH_AHT_INIT, PH_MEASURING, PH_DHT_START };
 
 static uint8_t type = SENSOR_NONE;
-static uint8_t dhtPin = 16;
+static uint8_t dhtPin = DHT_PIN_DEFAULT;
 static bool present = false;
 static char model[12] = "";
 static Phase phase = PH_IDLE;
@@ -62,6 +62,9 @@ static bool i2cProbe(uint8_t addr) {
 // Oslobađa magistralu ako je neki uređaj zadržao SDA na niskom nivou (9 taktova + STOP)
 static void i2cRecover() {
   LOG("Senzor: oporavak I²C magistrale");
+#if defined(ESP32)
+  Wire.end();  // ESP32: pinovi moraju biti oslobođeni od I²C periferije
+#endif
   pinMode(PIN_I2C_SDA, INPUT_PULLUP);
   pinMode(PIN_I2C_SCL, OUTPUT_OPEN_DRAIN);
   for (uint8_t i = 0; i < 9 && digitalRead(PIN_I2C_SDA) == LOW; i++) {
@@ -246,7 +249,7 @@ static bool dhtFinish() {
   uint8_t d[5] = {0};
   bool ok = true;
   {
-    esp8266::InterruptLock lock;  // ~5 ms: protokol je vremenski osetljiv
+    InterruptLock lock;  // ~5 ms: protokol je vremenski osetljiv
     digitalWrite(dhtPin, HIGH);
     pinMode(dhtPin, INPUT_PULLUP);
     delayMicroseconds(40);
@@ -340,7 +343,7 @@ void sensorBegin() {
     hasH = true;
     hasP = type == SENSOR_BME280;
     if (detect()) LOG("Senzor: pronađen %s", model);
-    else LOG("Senzor: %s nije pronađen na I²C (SDA=D2, SCL=D1)", sensorTypeName(type));
+    else LOG("Senzor: %s nije pronađen na I²C (" I2C_WIRING ")", sensorTypeName(type));
   }
 }
 

@@ -1,20 +1,28 @@
 #include "ota.h"
 
 #include <ArduinoOTA.h>
-#include <ESP8266WiFi.h>
+#if defined(ESP8266)
 #include <ESP8266mDNS.h>
+#else
+#include <ESPmDNS.h>
+#endif
 
 #include "app.h"
 #include "config.h"
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "platform.h"
 
 static bool netOta = false;
 static uint8_t lastPct = 255;
 static char activePass[sizeof(cfg.adminPass)] = "";  // lozinka sa kojom ArduinoOTA radi
 
-size_t otaMaxSize() { return (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000; }
+#if defined(ESP8266)
+size_t otaMaxSize() { return (sketchFreeSpace() - 0x1000) & 0xFFFFF000; }
+#else
+size_t otaMaxSize() { return ESP.getFreeSketchSpace(); }  // cela druga OTA particija
+#endif
 
 bool otaPrecheck(size_t size, char* err, size_t errLen) {
   err[0] = '\0';
@@ -49,6 +57,7 @@ void otaBegin() {
     return;
   }
   ArduinoOTA.setHostname(cfg.hostname);
+  ArduinoOTA.setPort(8266);  // isti port na obe ploče (ESP32 bi inače koristio 3232)
   ArduinoOTA.setPassword(cfg.adminPass);
   ArduinoOTA.onStart([]() {
     LOG("OTA: početak (espota)");
@@ -65,7 +74,13 @@ void otaBegin() {
     LOG("OTA: greška %u — postojeći firmware ostaje", (unsigned)e);
     displayResume();
   });
-  ArduinoOTA.begin(false);  // mDNS već vodi net.cpp; ovde samo dodajemo servis
+  // mDNS već vodi net.cpp; ovde samo dodajemo servis
+#if defined(ESP8266)
+  ArduinoOTA.begin(false);
+#else
+  ArduinoOTA.setMdnsEnabled(false);
+  ArduinoOTA.begin();
+#endif
   netOta = true;
   LOG("OTA: mrežni OTA aktivan na portu 8266");
 }

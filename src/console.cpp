@@ -1,7 +1,5 @@
 #include "console.h"
 
-#include <ESP8266WiFi.h>
-
 #include <memory>
 
 #include "app.h"
@@ -10,6 +8,7 @@
 #include "display.h"
 #include "mqtt.h"
 #include "net.h"
+#include "platform.h"
 #include "sensors.h"
 #include "system.h"
 #include "timesync.h"
@@ -21,8 +20,8 @@ static void printStatus() {
   time_t now = time(nullptr);
   struct tm t;
   localtime_r(&now, &t);
-  Serial.printf_P(PSTR("Firmware %s, uptime %lu s, restart: %s\n"), FW_VERSION, (unsigned long)diagUptimeS(),
-                  diagResetReason());
+  Serial.printf_P(PSTR("Firmware %s (%s), uptime %lu s, restart: %s\n"), FW_VERSION, BOARD_NAME,
+                  (unsigned long)diagUptimeS(), diagResetReason());
   Serial.printf_P(PSTR("Vreme: %02d:%02d:%02d %02d.%02d.%04d. (%s)\n"), t.tm_hour, t.tm_min, t.tm_sec, t.tm_mday,
                   t.tm_mon + 1, t.tm_year + 1900, timeStatusText(timeStatus()));
   Serial.printf_P(PSTR("Wi-Fi: %s, SSID '%s', IP %s, RSSI %d, neuspeha %lu, prekida %lu\n"), netStateText(),
@@ -31,7 +30,7 @@ static void printStatus() {
   Serial.printf_P(PSTR("Portal: %s (%s), MAC %s\n"), portalActive() ? "aktivan" : "ugašen", portalSsid(),
                   WiFi.macAddress().c_str());
   Serial.printf_P(PSTR("Heap: %u B (min %u, najveći blok %u, frag %u%%), najduža petlja %lu ms\n"),
-                  ESP.getFreeHeap(), diagHeapMin(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation(),
+                  (unsigned)ESP.getFreeHeap(), (unsigned)diagHeapMin(), (unsigned)heapMaxBlock(), heapFragmentation(),
                   (unsigned long)diagLoopMaxMs());
   Serial.printf_P(PSTR("Prikaz: %s, osvetljaj %u, %s\n"), displayItemName(), displayBrightness(),
                   displayIsOn() ? "uključen" : "isključen");

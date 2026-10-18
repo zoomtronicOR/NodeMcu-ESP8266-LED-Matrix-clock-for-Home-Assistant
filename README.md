@@ -1,6 +1,7 @@
 # NodeMCU ESP8266 LED matrični sat za Home Assistant
 
-Matrični sat na ESP8266 (NodeMCU) sa MAX7219 LED matricom (3–16 modula 8×8, podrazumevano 8×32).
+Matrični sat na ESP8266 (NodeMCU) ili ESP32-C3 (SuperMini) sa MAX7219 LED matricom (3–16 modula 8×8,
+podrazumevano 8×32).
 Prikazuje vreme, datum, dan u nedelji i poruke, ima lokalni web interfejs i opcionu MQTT integraciju
 sa Home Assistantom. Ceo interfejs i prikaz su na srpskom, latinicom ili ćirilicom.
 
@@ -45,7 +46,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
   - Pri pokretanju jedan piksel obilazi obod matrice dok se vreme ne sinhronizuje.
 - **Osvetljaj:** dnevni i noćni nivo, gornja granica, noćni režim (smanji ili ugasi) po rasporedu i režim „ne uznemiravaj“.
 - **Wi-Fi:**
-  - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (3 s).
+  - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (NodeMCU) ili BOOT (ESP32-C3), 3 s.
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, Senzori, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
 - **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
@@ -56,6 +57,17 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 
 ## Hardver
 
+Podržane ploče:
+
+| Ploča | PlatformIO okruženje | Status |
+|---|---|---|
+| **ESP8266 NodeMCU** (4 MB) | `nodemcuv2` (podrazumevano), `ota` | provereno u radu |
+| **ESP32-C3 SuperMini** (4 MB, USB-C) | `esp32c3`, `ota_c3` | kompajlira se, još nije provereno na ploči |
+
+Pinovi su fiksni za svaku ploču (`src/board.h`). Pin za DHT22 se bira u web UI-ju.
+
+### ESP8266 NodeMCU
+
 | Funkcija | NodeMCU | GPIO |
 |---|---|---|
 | MAX7219 CLK | D5 | 14 |
@@ -64,8 +76,26 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 | I²C SDA (AHT2x, BME280) | D2 | 4 |
 | I²C SCL (AHT2x, BME280) | D1 | 5 |
 | DHT22 podaci (izbor u UI) | D0 / D1 / D2 | 16 / 5 / 4 |
+| Taster za Wi-Fi podešavanje | FLASH | 0 |
 
-- Matricu napajati sa **5 V** iz dovoljno jakog izvora, ne iz 3,3 V pina NodeMCU ploče. ESP i matrica moraju imati zajedničku masu.
+### ESP32-C3 SuperMini
+
+| Funkcija | Pin na ploči |
+|---|---|
+| MAX7219 CLK | GPIO4 |
+| MAX7219 DIN | GPIO6 |
+| MAX7219 CS | GPIO7 |
+| I²C SDA (AHT2x, BME280) | GPIO1 |
+| I²C SCL (AHT2x, BME280) | GPIO0 |
+| DHT22 podaci (izbor u UI) | GPIO3 (podrazumevano) / GPIO10 / GPIO1 / GPIO0 |
+| Taster za Wi-Fi podešavanje | BOOT (GPIO9) |
+| Ne koristiti | GPIO2, GPIO8, GPIO9 (strapping), GPIO20/21 (UART) |
+
+Detaljno uputstvo za povezivanje, flešovanje i poznate probleme ove ploče: **[docs/esp32-c3.md](docs/esp32-c3.md)**.
+
+### Za obe ploče
+
+- Matricu napajati sa **5 V** iz dovoljno jakog izvora, ne iz 3,3 V pina ploče. ESP i matrica moraju imati zajedničku masu.
 - Za pouzdan rad preporučuje se pretvarač nivoa 3,3 V → 5 V za SPI linije (npr. 74HCT125).
 - Orijentacija modula se bira u web UI-ju („Tip modula“) i proverava se „Test ekranom“.
 
@@ -74,9 +104,12 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 Potreban je [PlatformIO](https://platformio.org/).
 
 ```
-pio run                 # build
-pio run -t upload       # flešovanje (port je u platformio.ini)
-pio device monitor      # serijski monitor, 115200
+pio run                          # build za ESP8266 NodeMCU (podrazumevano)
+pio run -t upload                # flešovanje NodeMCU-a (port je u platformio.ini)
+pio device monitor               # serijski monitor, 115200
+
+pio run -e esp32c3 -t upload     # ESP32-C3 SuperMini (port se pronalazi sam)
+pio device monitor -e esp32c3
 ```
 
 Fontovi (`tools/fonts/*.txt` → `tools/gen_fonts.py`) i web UI (`web/index.html` → `tools/embed_web.py`)
@@ -85,15 +118,15 @@ upload fajl sistema.
 
 ## Ažuriranje preko mreže (OTA)
 
-- **Web UI:** kartica **Sistem → Ažuriranje firmware-a**, fajl `.pio/build/nodemcuv2/firmware.bin`. Napredak se prikazuje u pregledaču i na matrici.
+- **Web UI:** kartica **Sistem → Ažuriranje firmware-a**, fajl `.pio/build/nodemcuv2/firmware.bin` (ESP32-C3: `.pio/build/esp32c3/firmware.bin`). Napredak se prikazuje u pregledaču i na matrici. Firmware za drugu ploču se odbija.
 - **PlatformIO (espota):** radi samo kad je postavljena admin lozinka, koja je i OTA lozinka:
   ```
   # PowerShell
   $env:MATRIX_OTA_PASS="admin-lozinka"; pio run -e ota -t upload
   ```
-  Ime uređaja (`upload_port` u `[env:ota]`) prilagoditi svom uređaju ili navesti IP adresu.
+  Ime uređaja (`upload_port` u `[env:ota]`) prilagoditi svom uređaju ili navesti IP adresu. Za ESP32-C3 isto važi za `[env:ota_c3]` (`pio run -e ota_c3 -t upload`).
 - Ažuriranje ne počinje bez Wi-Fi veze, ako je signal slabiji od −80 dBm, ili ako nema dovoljno mesta. Prekinut, skraćen ili neispravan fajl se odbacuje, a postojeći firmware ostaje.
-- **Automatskog vraćanja na stari firmware nema.** Ako novi firmware ne radi, oporavak je preko USB-a (`pio run -t upload`).
+- **Automatskog vraćanja na stari firmware nema.** Ako novi firmware ne radi, oporavak je preko USB-a (`pio run -t upload`, za ESP32-C3 `pio run -e esp32c3 -t upload`).
 
 ## Prvo pokretanje
 
@@ -185,7 +218,7 @@ veš mašina, otvoren prozor, otvorena vrata, detekcija dima, curenje vode, pods
 
 Komande se kucaju na 115200 baud: `help`, `status`, `wifi <ssid>|<lozinka>`, `portal`, `msg <tekst>`, `test`, `restart`, `factory`.
 
-## Napomena za Windows i CH340
+## Napomena za Windows i CH340 (NodeMCU)
 
 Ako se serijski port otvori jednom, a zatim javlja grešku 31 („A device attached to the system is not functioning“),
 vrati CH340 drajver na verziju 3.4.2014.8 u Device Manageru.

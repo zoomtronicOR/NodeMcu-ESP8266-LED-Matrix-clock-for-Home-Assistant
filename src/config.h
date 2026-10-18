@@ -36,7 +36,7 @@ struct MqttConfig {
 
 struct SensorConfig {
   uint8_t type;       // SensorType (sensors.h)
-  uint8_t dhtPin;     // GPIO za DHT22: 16 (D0), 5 (D1) ili 4 (D2)
+  uint8_t dhtPin;     // GPIO za DHT22, jedan od DHT_PINS (board.h)
   uint16_t interval;  // s između očitavanja
   int16_t tOffset;    // kalibracioni pomak, desetinke °C
   int16_t hOffset;    // kalibracioni pomak, desetinke %

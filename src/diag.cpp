@@ -1,6 +1,7 @@
 #include "diag.h"
 
 #include "app.h"
+#include "platform.h"
 
 static uint32_t heapMin = UINT32_MAX;
 static uint32_t heapBoot = 0;
@@ -10,10 +11,10 @@ static uint32_t loopMaxUs = 0;
 static char resetReason[48];
 
 void diagBegin() {
-  strlcpySafe(resetReason, ESP.getResetReason().c_str(), sizeof(resetReason));
+  resetReasonText(resetReason, sizeof(resetReason));
   heapMin = heapBoot = ESP.getFreeHeap();
   lastTick = millis();
-  LOG("Pokretanje: firmware %s, razlog restarta: %s", FW_VERSION, resetReason);
+  LOG("Pokretanje: firmware %s (%s), razlog restarta: %s", FW_VERSION, BOARD_NAME, resetReason);
 }
 
 void diagLoop(uint32_t loopUs) {

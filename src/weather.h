@@ -1,5 +1,5 @@
 // Spoljna temperatura preko OpenWeatherMap API-ja (opciono, cfg.owm).
-// Zahtev je asinhron (ESPAsyncTCP, HTTP/1.0) — glavna petlja ne čeka server.
+// Zahtev je asinhron (ESPAsyncTCP / AsyncTCP na ESP32, HTTP/1.0) — glavna petlja ne čeka server.
 // HTTP, ne HTTPS: TLS na ESP8266 traži ~20 KB RAM-a, koliko uz ostale funkcije nema.
 #pragma once
 #include <Arduino.h>

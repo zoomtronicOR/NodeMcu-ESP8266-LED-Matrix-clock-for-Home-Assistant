@@ -167,14 +167,14 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label>Ime uređaja (mDNS: ime.local)<input type="text" data-k="net.hostname" maxlength="24"></label>
 <label>Lozinka pristupne tačke za podešavanje<input type="password" data-k="net.apPass" data-secret maxlength="63" placeholder="nepromenjena"></label>
 <label>Pristupna tačka posle neuspelih pokušaja<input type="number" min="1" max="50" data-k="net.portalFails"></label>
-</div><p class="note">Pristupna tačka se pokreće ako Wi-Fi nije podešen, ako posle pokretanja ne uspe zadati broj pokušaja povezivanja, ili držanjem tastera FLASH 3 s.</p></div>
+</div><p class="note">Pristupna tačka se pokreće ako Wi-Fi nije podešen, ako posle pokretanja ne uspe zadati broj pokušaja povezivanja, ili držanjem tastera <span class="btnName">FLASH</span> 3 s.</p></div>
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button></div>
 </section>
 
 <section id="senzori" data-sec="sens">
 <div class="card"><h2>Senzor</h2><div class="grid">
 <label>Tip senzora<select data-k="sens.type" id="sType"><option value="0">nijedan</option><option value="1">AHT20 / AHT21 (I²C)</option><option value="2">BME280 / BMP280 (I²C)</option><option value="3">DHT22</option></select></label>
-<label id="sPinL">Pin za DHT22<select data-k="sens.dhtPin"><option value="16">D0 (GPIO16)</option><option value="5">D1 (GPIO5)</option><option value="4">D2 (GPIO4)</option></select></label>
+<label id="sPinL">Pin za DHT22<select data-k="sens.dhtPin" id="dhtPin"></select></label>
 <label>Interval očitavanja (s)<input type="number" min="10" max="3600" data-k="sens.interval"></label>
 </div><p class="note" id="sWire"></p>
 <p class="note">Promena tipa senzora (ili pina za DHT22) posle čuvanja automatski restartuje uređaj. Ako senzor nije povezan ili ne radi, sat radi normalno, a vrednosti se ne prikazuju.</p></div>
@@ -376,7 +376,7 @@ $("#owmNow").addEventListener("click",async()=>{try{await api("/api/action",{cmd
 function updSensorUi(){
   const t=+$("#sType").value;
   $("#sPinL").style.display=t===3?"":"none";
-  $("#sWire").textContent=t===1||t===2?"Povezivanje: SDA → D2, SCL → D1, VCC → 3,3 V, GND → GND.":t===3?"Povezivanje: podaci → izabrani pin, VCC → 3,3 V, GND → GND; potreban je pull-up otpornik 10 kΩ na 3,3 V (većina modula ga ima).":"";
+  $("#sWire").textContent=t===1||t===2?`Povezivanje: ${meta.i2c}, VCC → 3,3 V, GND → GND.`:t===3?"Povezivanje: podaci → izabrani pin, VCC → 3,3 V, GND → GND; potreban je pull-up otpornik 10 kΩ na 3,3 V (većina modula ga ima).":"";
 }
 $("#sType").addEventListener("change",updSensorUi);
 
@@ -532,7 +532,7 @@ async function status(){
     row("MQTT povezivanja / neuspeli pokušaji",`${s.mqtt.connects} / ${s.mqtt.fails}`+(s.mqtt.age>=0?` · poslednje pre ${Math.round(s.mqtt.age/60)} min`:""))+
     row("Matrica",`${d.modules} modula (${d.modules*8} kolona), tip ${d.hw}`)+
     row("NTP sinhronizacija",s.ntpCount+" puta")+
-    row("MAC / čip",`${w.mac} / ${y.chip}`)+
+    row("Ploča",esc(y.board||"ESP8266 NodeMCU"))+row("MAC / čip",`${w.mac} / ${y.chip}`)+
     row("Flash čip",`${y.flash>>20} MB`);
   const n=s.sens;
   $("#sst").innerHTML=row("Aktivan senzor",esc(n.name)+(n.model?" ("+esc(n.model)+")":""))+row("Stanje",esc(n.state),n.type?(n.t!==undefined?"ok":"warn"):"")+
@@ -577,6 +577,8 @@ async function loadCfg(netOnly){
   try{
     meta=await api("/api/meta");
     $("#hw").innerHTML=HW.map((h,i)=>`<option value="${i}">${h}</option>`).join("");
+    $("#dhtPin").innerHTML=meta.dhtPins.map(p=>`<option value="${p.v}">${esc(p.n)}</option>`).join("");
+    document.querySelectorAll(".btnName").forEach(e=>e.textContent=meta.button);
     let mo="";for(let n=meta.modMin;n<=meta.modMax;n++)mo+=`<option value="${n}">${n} (${n*8} kolona)</option>`;$("#modules").innerHTML=mo;
     initHm();
     $("#timeFont").innerHTML=meta.fonts.map((f,i)=>i?`<option value="${i}">${f}</option>`:"").join("");

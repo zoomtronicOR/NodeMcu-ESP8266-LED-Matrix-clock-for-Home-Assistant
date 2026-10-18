@@ -7,9 +7,7 @@
 
 enum SensorType : uint8_t { SENSOR_NONE = 0, SENSOR_AHT2X, SENSOR_BME280, SENSOR_DHT22, SENSOR_TYPE_COUNT };
 
-// I²C magistrala (fiksno, odvojeno od matrice na D5/D6/D7)
-constexpr uint8_t PIN_I2C_SDA = 4;  // D2
-constexpr uint8_t PIN_I2C_SCL = 5;  // D1
+// I²C pinovi (PIN_I2C_SDA/SCL) su u board.h, odvojeni od pinova matrice
 
 void sensorBegin();  // tip i pin se čitaju samo ovde; promena traži restart
 void sensorLoop();
