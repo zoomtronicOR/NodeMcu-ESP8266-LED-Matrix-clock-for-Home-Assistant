@@ -179,7 +179,7 @@ actions:
 
 Više primera ima u **[docs/home-assistant.md](docs/home-assistant.md)**: entitet „Poruka“,
 skripta za višekratnu upotrebu, poruke iz šablona (temperatura, ime osobe), zvono na vratima,
-veš mašina, otvoren prozor, podsetnici, noćni režim, gašenje ekrana i izbor stranice.
+veš mašina, otvoren prozor, otvorena vrata, detekcija dima, curenje vode, podsetnici, noćni režim, gašenje ekrana i izbor stranice.
 
 ## Serijska konzola (oporavak bez mreže)
 

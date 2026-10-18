@@ -188,6 +188,200 @@ actions:
       payload: '{"text":"Zatvori prozor u dnevnoj sobi","seconds":600}'
 ```
 
+### Otvorena vrata
+
+Ako su vrata otvorena duže od 2 minuta, poruka stoji dok se ne zatvore. Kad se vrata zatvore,
+poruka se uklanja. Prazna poruka uklanja **bilo koju** trenutnu poruku, pa uslov proverava
+da u tom trenutku nema alarma za dim ili vodu (primeri ispod).
+
+```yaml
+alias: Sat - otvorena vrata
+mode: restart
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.ulazna_vrata
+      - binary_sensor.vrata_terasa
+    to: "on"
+    for: "00:02:00"
+    id: otvorena
+  - trigger: state
+    entity_id:
+      - binary_sensor.ulazna_vrata
+      - binary_sensor.vrata_terasa
+    from: "on"
+    to: "off"
+    id: zatvorena
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: otvorena
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/message
+              payload: >-
+                {{ {"text": "Otvoreno: " ~ trigger.to_state.name, "seconds": 3600} | to_json }}
+      - conditions:
+          - condition: trigger
+            id: zatvorena
+          - condition: state
+            entity_id:
+              - binary_sensor.detektor_dima_kuhinja
+              - binary_sensor.curenje_vode_kupatilo
+            state: "off"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/message
+              payload: ""
+```
+
+`trigger.to_state.name` je naziv entiteta iz HA (npr. „Ulazna vrata“), pa jedna automatizacija
+pokriva sva vrata.
+
+### Detekcija dima
+
+Alarm mora da se vidi i noću, pa automatizacija prvo vraća režim prikaza na `normal`
+(ako je bio `dnd` ili `off`) i pali pun osvetljaj. Poruka se ponavlja dok detektor ne prestane
+da javlja dim. Jedna poruka traje najviše 3600 s, pa se za duži alarm šalje ponovo.
+
+```yaml
+alias: Sat - dim
+mode: restart
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.detektor_dima_kuhinja
+      - binary_sensor.detektor_dima_hodnik
+    to: "on"
+    id: alarm
+  - trigger: state
+    entity_id:
+      - binary_sensor.detektor_dima_kuhinja
+      - binary_sensor.detektor_dima_hodnik
+    from: "on"
+    to: "off"
+    id: kraj
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: alarm
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/display_mode
+              payload: normal
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/brightness
+              payload: "15"
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ is_state(trigger.entity_id, 'on') }}"
+              sequence:
+                - action: mqtt.publish
+                  data:
+                    topic: matrix_clock_xxxx/command/message
+                    payload: >-
+                      {{ {"text": "POŽAR! Dim: " ~ trigger.to_state.name, "seconds": 3600} | to_json }}
+                - wait_template: "{{ is_state(trigger.entity_id, 'off') }}"
+                  timeout: "00:55:00"
+      - conditions:
+          - condition: trigger
+            id: kraj
+          - condition: state
+            entity_id:
+              - binary_sensor.detektor_dima_kuhinja
+              - binary_sensor.detektor_dima_hodnik
+            state: "off"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/message
+              payload: '{"text":"Dima više nema","seconds":60}'
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/brightness
+              payload: "3"
+```
+
+Kad **svi** detektori prestanu da javljaju dim, sat 60 s prikazuje „Dima više nema“, a osvetljaj se vraća na 3
+(stavi svoju uobičajenu vrednost). Režim prikaza ostaje `normal`. Ako je noćni režim
+podešen automatizacijom, ona ga vraća u sledeće zadato vreme.
+
+### Curenje vode
+
+Isti princip kao za dim: režim `normal`, pun osvetljaj, poruka dok senzor ne bude suv.
+
+```yaml
+alias: Sat - curenje vode
+mode: restart
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.curenje_vode_kupatilo
+      - binary_sensor.curenje_vode_kuhinja
+    to: "on"
+    id: alarm
+  - trigger: state
+    entity_id:
+      - binary_sensor.curenje_vode_kupatilo
+      - binary_sensor.curenje_vode_kuhinja
+    from: "on"
+    to: "off"
+    id: kraj
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: alarm
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/display_mode
+              payload: normal
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/brightness
+              payload: "15"
+          - repeat:
+              while:
+                - condition: template
+                  value_template: "{{ is_state(trigger.entity_id, 'on') }}"
+              sequence:
+                - action: mqtt.publish
+                  data:
+                    topic: matrix_clock_xxxx/command/message
+                    payload: >-
+                      {{ {"text": "Curi voda: " ~ trigger.to_state.name, "seconds": 3600} | to_json }}
+                - wait_template: "{{ is_state(trigger.entity_id, 'off') }}"
+                  timeout: "00:55:00"
+      - conditions:
+          - condition: trigger
+            id: kraj
+          - condition: state
+            entity_id:
+              - binary_sensor.curenje_vode_kupatilo
+              - binary_sensor.curenje_vode_kuhinja
+            state: "off"
+        sequence:
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/message
+              payload: '{"text":"Senzor vode je suv","seconds":60}'
+          - action: mqtt.publish
+            data:
+              topic: matrix_clock_xxxx/command/brightness
+              payload: "3"
+```
+
+Ako je uz senzor ugrađen i ventil (npr. `valve.glavni_ventil`), u granu `alarm` pre poruke
+može se dodati `action: valve.close_valve` sa `target: {entity_id: valve.glavni_ventil}`.
+
 ### Ko je stigao kući
 
 ```yaml
