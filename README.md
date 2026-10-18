@@ -44,6 +44,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
 - **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
+- **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, vetar i opis vremena. Unose se API ključ i grad ili ID grada. Zahtev je asinhron, preko HTTP-a.
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
 - **OTA ažuriranje:** iz web UI-ja ili preko `espota`, uz proveru signala, mesta i veličine fajla. Neuspelo ažuriranje ostavlja postojeći firmware.
 - **Dijagnostika:** slobodna i najniža memorija, uptime, razlog restarta, najduža petlja, statusi Wi-Fi/NTP/MQTT.
@@ -111,7 +112,7 @@ Web interfejs je namenjen lokalnoj mreži; ne izlagati ga internetu.
 | `<base>/command/brightness` | → sat | `0`–`15` (važi do sledeće smene dan/noć) |
 | `<base>/command/message` | → sat | tekst ili `{"text":"...","seconds":60}`; prazno = ukloni |
 | `<base>/command/display_mode` | → sat | `normal`, `off`, `dnd` |
-| `<base>/command/page` | → sat | `time`, `date`, `weekday`, `messages`, `sensor` |
+| `<base>/command/page` | → sat | `time`, `date`, `weekday`, `messages`, `sensor`, `weather` |
 | `<base>/command/test`, `<base>/command/restart` | → sat | bilo koji sadržaj |
 
 ## Serijska konzola (oporavak bez mreže)

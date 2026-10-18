@@ -10,7 +10,7 @@
 //   <base>/command/brightness  0-15 (ručno, do sledeće smene dan/noć)
 //   <base>/command/message     tekst ili {"text":"...","seconds":60}; prazno = ukloni
 //   <base>/command/display_mode normal | off | dnd
-//   <base>/command/page        time | date | weekday | messages | sensor
+//   <base>/command/page        time | date | weekday | messages | sensor | weather
 //   <base>/command/test, <base>/command/restart
 #pragma once
 #include <Arduino.h>

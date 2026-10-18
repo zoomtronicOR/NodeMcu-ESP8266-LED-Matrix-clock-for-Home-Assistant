@@ -3,12 +3,12 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-constexpr uint16_t CONFIG_SCHEMA = 2;  // povećati pri promeni strukture; starije se prevode pri učitavanju
+constexpr uint16_t CONFIG_SCHEMA = 3;  // povećati pri promeni strukture; starije se prevode pri učitavanju
 constexpr uint8_t MSG_COUNT = 6;
 constexpr uint8_t MSG_MAX_LEN = 150;   // bajtova UTF-8 po poruci
-constexpr uint8_t PAGE_COUNT = 5;
+constexpr uint8_t PAGE_COUNT = 6;
 
-enum PageId : uint8_t { PAGE_TIME = 0, PAGE_DATE, PAGE_WEEKDAY, PAGE_MESSAGES, PAGE_SENSOR };
+enum PageId : uint8_t { PAGE_TIME = 0, PAGE_DATE, PAGE_WEEKDAY, PAGE_MESSAGES, PAGE_SENSOR, PAGE_WEATHER };
 enum ScrollDir : uint8_t { SCROLL_LEFT = 0, SCROLL_RIGHT, SCROLL_UP, SCROLL_DOWN };
 enum NightMode : uint8_t { NIGHT_DIM = 0, NIGHT_OFF };
 enum AnimDir : uint8_t { ANIM_NONE = 0, ANIM_UP, ANIM_DOWN };
@@ -41,6 +41,15 @@ struct SensorConfig {
   int16_t tOffset;    // kalibracioni pomak, desetinke °C
   int16_t hOffset;    // kalibracioni pomak, desetinke %
   bool showTemp, showHum, showPress;  // šta se prikazuje na stranici "Senzor"
+};
+
+struct WeatherConfig {  // OpenWeatherMap
+  bool enabled;
+  char key[65];       // API ključ (tajna, ne izvozi se)
+  char city[49];      // npr. "Beograd,RS"
+  uint16_t intervalMin;
+  char label[33];     // natpis na matrici, UTF-8 (npr. "Napolju")
+  bool showTemp, showFeels, showHum, showPress, showWind, showDesc;  // šta se prikazuje
 };
 
 struct Config {
@@ -88,6 +97,7 @@ struct Config {
 
   MqttConfig mqtt;
   SensorConfig sens;
+  WeatherConfig owm;
 };
 
 extern Config cfg;

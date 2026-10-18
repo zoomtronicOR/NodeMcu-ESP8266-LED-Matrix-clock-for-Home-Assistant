@@ -8,6 +8,7 @@
 #include "config.h"
 #include "net.h"
 #include "sensors.h"
+#include "weather.h"
 #include "text.h"
 #include "timesync.h"
 
@@ -16,8 +17,8 @@ constexpr uint32_t PORTAL_INFO_EVERY_MS = 20000;   // koliko često ponoviti upu
 constexpr uint32_t NTP_WARN_EVERY_MS = 3600UL * 1000;
 
 enum Item : uint8_t {
-  IT_NONE, IT_BOOT, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_NOTICE, IT_PRIORITY, IT_PORTAL, IT_TEST,
-  IT_HOLD
+  IT_NONE, IT_BOOT, IT_TIME, IT_DATE, IT_WEEKDAY, IT_MESSAGE, IT_SENSOR, IT_WEATHER, IT_NOTICE, IT_PRIORITY, IT_PORTAL,
+  IT_TEST, IT_HOLD
 };
 
 static MD_Parola* P = nullptr;
@@ -36,6 +37,7 @@ static bool inMessages = false;
 static uint8_t msgCursor = 0;
 static bool inSensor = false;
 static uint8_t sensorCursor = 0;
+static uint8_t weatherStep = 0;  // indeks sledeće stavke stranice "Napolju"; 0 = stranica nije u toku
 
 static char notice[96];
 static bool noticePending = false;
@@ -96,7 +98,7 @@ static void startUtf8(Item it, const char* text, uint8_t font, uint16_t holdMs) 
   itemT0 = millis();
   utf8ToGlyphs(text, glyphs, sizeof(glyphs));
   if (!glyphs[0]) strlcpySafe(glyphs, " ", sizeof(glyphs));  // prazan tekst: kontrolisano
-  if (it == IT_DATE || it == IT_SENSOR) {
+  if (it == IT_DATE || it == IT_SENSOR || it == IT_WEATHER) {
     // tačke u datumu i decimalna tačka temperature u izabranoj veličini (obična '.' u porukama ostaje)
     char dot = glyphDateDot(cfg.dateDot);
     for (char* p = glyphs; *p; p++)
@@ -336,6 +338,67 @@ static bool startNextSensorValue() {
   return false;
 }
 
+// Stranica "Napolju": natpis pa izabrane stavke, jedna za drugom. Natpis i prva stavka idu
+// zajedno ("Napolju 12.3°C") ako staju na ekran.
+constexpr uint8_t W_ITEMS_MAX = 7;
+static char wItems[W_ITEMS_MAX][56];
+static uint8_t wCount = 0;
+
+static void wAdd(const char* s) {
+  if (wCount < W_ITEMS_MAX && s[0]) strlcpySafe(wItems[wCount++], s, sizeof(wItems[0]));
+}
+
+static bool fitsText(const char* s) {
+  char g[64];
+  utf8ToGlyphs(s, g, sizeof(g));
+  return textWidth(FONT_ID_TEXT, g) <= displayCols;
+}
+
+static bool startWeather() {
+  WeatherData w;
+  if (!weatherData(w)) return false;
+  char vals[6][56];
+  uint8_t n = 0;
+  char word[24];
+  if (cfg.owm.showTemp) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%.1f°C"), w.temp);
+  if (cfg.owm.showFeels) {
+    word[0] = '\0';
+    appendSys(word, sizeof(word), "oseća se");
+    snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%s %.1f°C"), word, w.feels);
+  }
+  if (cfg.owm.showHum) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%u%%"), w.humidity);
+  if (cfg.owm.showPress) snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%u hPa"), w.pressure);
+  if (cfg.owm.showWind) {
+    word[0] = '\0';
+    appendSys(word, sizeof(word), "vetar");
+    snprintf_P(vals[n++], sizeof(vals[0]), PSTR("%s %.1f m/s"), word, w.wind);
+  }
+  if (cfg.owm.showDesc && w.desc[0]) {  // opis sa servera u pismu koje je izabrano
+    if (cfg.cyrillic) latinToCyrillic(w.desc, vals[n++], sizeof(vals[0]));
+    else cyrillicToLatin(w.desc, vals[n++], sizeof(vals[0]));
+  }
+  if (!n) return false;
+
+  char label[40] = "";
+  appendSys(label, sizeof(label), cfg.owm.label);  // ćirilica ako je izabrana
+  wCount = 0;
+  uint8_t first = 0;
+  if (label[0]) {
+    char both[100];
+    snprintf_P(both, sizeof(both), PSTR("%s %s"), label, vals[0]);
+    if (fitsText(both)) {
+      wAdd(both);
+      first = 1;
+    } else {
+      wAdd(label);
+    }
+  }
+  for (uint8_t i = first; i < n; i++) wAdd(vals[i]);
+  weatherStep = 1;
+  startUtf8(IT_WEATHER, wItems[0], FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+  return true;
+}
+
 static bool startPage(uint8_t page) {
   switch (page) {
     case PAGE_TIME:
@@ -362,6 +425,8 @@ static bool startPage(uint8_t page) {
       inSensor = true;
       sensorCursor = 0;
       return startNextSensorValue();
+    case PAGE_WEATHER:
+      return startWeather();
   }
   return false;
 }
@@ -403,6 +468,13 @@ static void nextItem() {
     if (inSensor) {
       if (startNextSensorValue()) return;
       inSensor = false;
+    }
+    if (weatherStep) {  // sledeća stavka stranice "Napolju"
+      if (weatherStep < wCount) {
+        startUtf8(IT_WEATHER, wItems[weatherStep++], FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+        return;
+      }
+      weatherStep = 0;
     }
     uint8_t page = cfg.pageOrder[pageCursor];
     pageCursor = (pageCursor + 1) % PAGE_COUNT;
@@ -566,6 +638,7 @@ void displayBegin() {
 void displayApplyConfig() {
   if (startupDone) updateBrightness(true);
   inMessages = inSensor = false;
+  weatherStep = 0;
   pageCursor = 0;
   if (item != IT_TEST) nextItem();
 }
@@ -689,6 +762,7 @@ void displayShowPage(uint8_t page) {
   if (page >= PAGE_COUNT) return;
   forcedPage = page;
   inMessages = inSensor = false;
+  weatherStep = 0;
   if (item != IT_TEST) nextItem();
 }
 
@@ -709,6 +783,7 @@ const char* displayItemName() {
     case IT_WEEKDAY: return "dan u nedelji";
     case IT_MESSAGE: return "poruka";
     case IT_SENSOR: return "senzor";
+    case IT_WEATHER: return "napolju";
     case IT_NOTICE: return "obaveštenje";
     case IT_PRIORITY: return "prioritetna poruka";
     case IT_PORTAL: return "uputstvo za Wi-Fi";

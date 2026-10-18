@@ -186,6 +186,23 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label class="chk"><input type="checkbox" data-k="sens.showP"> Prikaži pritisak</label>
 </div><p class="note">Vrednosti se prikazuju na stranici „Senzor“ (redosled i uključivanje na kartici „Prikaz“).</p></div>
 <div class="card"><h2>Trenutno stanje</h2><table id="sst"></table></div>
+<div class="card"><h2>Spoljna temperatura (OpenWeatherMap)</h2><div class="grid">
+<label class="chk"><input type="checkbox" data-k="owm.on"> Uključeno</label>
+<label>API ključ<input type="password" data-k="owm.key" data-secret id="owmKey" maxlength="64" autocomplete="off"></label>
+<label>Grad (npr. Beograd,RS) ili ID grada<input type="text" data-k="owm.city" maxlength="48"></label>
+<label>Osvežavanje (min)<input type="number" min="10" max="180" data-k="owm.interval"></label>
+<label>Natpis na matrici<input type="text" data-k="owm.label" maxlength="32"></label>
+</div>
+<p class="note" style="margin-top:12px">Prikaži na matrici (redom):</p><div class="grid">
+<label class="chk"><input type="checkbox" data-k="owm.showT"> Temperatura</label>
+<label class="chk"><input type="checkbox" data-k="owm.showF"> Oseća se (subjektivna temperatura)</label>
+<label class="chk"><input type="checkbox" data-k="owm.showH"> Vlažnost</label>
+<label class="chk"><input type="checkbox" data-k="owm.showP"> Pritisak</label>
+<label class="chk"><input type="checkbox" data-k="owm.showW"> Vetar</label>
+<label class="chk"><input type="checkbox" data-k="owm.showD"> Opis vremena (npr. „slaba kiša“)</label>
+</div><table id="owmSt" style="margin-top:12px"></table>
+<div class="btns" style="margin-top:12px"><button class="btn" id="owmNow">Osveži sada</button></div>
+<p class="note">Besplatan ključ: openweathermap.org → „API keys“ (novi ključ proradi u roku od oko 2 h). Na matrici redom: natpis pa izabrane stavke („Napolju 12.3°C“ zajedno kad staje); stranica „Napolju“ se uključuje i raspoređuje na kartici „Prikaz“. Zahtev ide preko HTTP-a (HTTPS traži više memorije nego što ESP8266 ima uz ostale funkcije), pa ključ nije šifrovan u prenosu — ne koristite ga ni za šta drugo.</p></div>
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
 </section>
 
@@ -233,7 +250,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 "use strict";
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let cfg=null,meta=null,stTimer=0;
-const PAGES=["Vreme","Datum","Dan u nedelji","Poruke","Senzor"];
+const PAGES=["Vreme","Datum","Dan u nedelji","Poruke","Senzor","Napolju (OpenWeatherMap)"];
 const HW=["Generic","FC-16 (najčešći)","Parola","ICStation","DR0 CR0 RR0","DR0 CR0 RR1","DR0 CR1 RR0","DR0 CR1 RR1","DR1 CR0 RR0","DR1 CR0 RR1","DR1 CR1 RR0","DR1 CR1 RR1"];
 const TZ=[["Europe/Belgrade","CET-1CEST,M3.5.0,M10.5.0/3"],["Europe/London","GMT0BST,M3.5.0/1,M10.5.0"],["Europe/Athens","EET-2EEST,M3.5.0/3,M10.5.0/4"],["Europe/Istanbul","<+03>-3"],["Europe/Moscow","MSK-3"],["UTC","UTC0"],["America/New_York","EST5EDT,M3.2.0,M11.1.0"],["America/Chicago","CST6CDT,M3.2.0,M11.1.0"],["America/Los_Angeles","PST8PDT,M3.2.0,M11.1.0"],["Asia/Dubai","<+04>-4"],["Asia/Tokyo","JST-9"],["Australia/Sydney","AEST-10AEDT,M10.1.0,M4.1.0/3"]];
 const enc=new TextEncoder();
@@ -290,7 +307,7 @@ function setHm(el,v){
 function updRanges(){$$("input[type=range]").forEach(r=>{const b=$("#v_"+r.dataset.k.split(".")[1]);if(b)b.textContent=r.value})}
 
 // ---- stranice (redosled + uključeno)
-let order=[0,1,2,3,4],pagesOn=[true,true,true,true,true];
+let order=[0,1,2,3,4,5],pagesOn=[true,true,true,true,true,true];
 function drawPages(){
   $("#pages").innerHTML=order.map((p,i)=>`<div class="pg"><input type="checkbox" data-p="${p}" ${pagesOn[p]?"checked":""}><span>${PAGES[p]}</span><button class="btn" data-up="${i}" ${i?"":"disabled"}>↑</button><button class="btn" data-dn="${i}" ${i<order.length-1?"":"disabled"}>↓</button></div>`).join("");
 }
@@ -350,6 +367,9 @@ $$("[data-act]").forEach(b=>b.addEventListener("click",async()=>{
   }catch(e){toast(e.message,1)}
   b.disabled=false;
 }));
+
+// ---- OpenWeatherMap
+$("#owmNow").addEventListener("click",async()=>{try{await api("/api/action",{cmd:"owm"});toast("Zahtev je poslat — stanje se osvežava za nekoliko sekundi.");setTimeout(status,4000)}catch(e){toast(e.message,1)}});
 
 // ---- senzori
 function updSensorUi(){
@@ -493,6 +513,7 @@ async function status(){
     row("IP adresa",w.ip?`${w.ip} · ${esc(w.host)}.local`:"—")+
     row("Pristupna tačka",s.portal.on?"aktivna: "+esc(s.portal.ssid):"ugašena",s.portal.on?"warn":"")+
     row("MQTT",!s.mqtt.on?"isključen":s.mqtt.state+(s.mqtt.err?" — "+esc(s.mqtt.err):""),!s.mqtt.on?"":s.mqtt.ok?"ok":"warn")+
+    row("Napolju (OWM)",s.owm.on?(s.owm.t!==undefined?`${s.owm.t} °C · ${esc(s.owm.place)}`:esc(s.owm.state)):"isključeno",!s.owm.on?"":s.owm.t!==undefined?"ok":"warn")+
     row("Senzor",sensText(s.sens),s.sens.type?(s.sens.t!==undefined?"ok":"warn"):"")+
     row("Na ekranu",d.item+` · osvetljaj ${d.bright}`+(d.on?"":" · matrica ugašena"));
   $("#dg").innerHTML=
@@ -515,6 +536,11 @@ async function status(){
   $("#sst").innerHTML=row("Aktivan senzor",esc(n.name)+(n.model?" ("+esc(n.model)+")":""))+row("Stanje",esc(n.state),n.type?(n.t!==undefined?"ok":"warn"):"")+
     row("Temperatura",n.t!==undefined?n.t+" °C":"—")+row("Vlažnost",n.h!==undefined?n.h+" %":"—")+row("Pritisak",n.p!==undefined?n.p+" hPa":"—")+
     row("Poslednje očitavanje",n.age>=0?`pre ${n.age} s`:"—")+row("Očitavanja / greške",`${n.reads} / ${n.errors}`);
+  const o=s.owm;
+  $("#owmSt").innerHTML=row("Stanje",esc(o.state),!o.on?"":o.t!==undefined?"ok":"warn")+
+    row("Poslednje očitavanje",o.t!==undefined?`${esc(o.place)} · pre ${Math.round(o.age/60)} min`:"—")+
+    (o.t!==undefined?row("Vrednosti",`${o.t} °C (oseća se ${o.feels} °C) · ${o.hum} % · ${o.press} hPa · vetar ${o.wind} m/s · ${esc(o.desc)}`):"")+
+    (o.err?row("Poslednja greška",esc(o.err),"err"):"")+row("Uspešna / neuspela očitavanja",`${o.ok} / ${o.errors}`);
   if(document.activeElement!==$("#dmode"))$("#dmode").value=d.mode;
   $("#bDirty").style.display=y.dirty?"block":"none";
   $("#bRestart").style.display=y.restart?"block":"none";
@@ -541,6 +567,7 @@ async function loadCfg(netOnly){
   ["prikaz","poruke","vreme","mreza","senzori","mqtt"].forEach(s=>fillSection(s,cfg));
   $("#wpass").placeholder=cfg.net.passSet?"nepromenjena":"";
   $("#mqpass").placeholder=cfg.mqtt.passSet?"nepromenjena":"";
+  $("#owmKey").placeholder=cfg.owm.keySet?"nepromenjen":"";
   $$(".tb").forEach(e=>e.textContent=cfg.mqtt.base);
   $("#bAdmin").style.display=cfg.net.adminPassSet?"none":"block";
 }

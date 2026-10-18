@@ -72,6 +72,12 @@ void configDefaults(Config& c) {
   c.sens.dhtPin = 16;
   c.sens.interval = 30;
   c.sens.showTemp = c.sens.showHum = c.sens.showPress = true;
+
+  c.owm.enabled = false;
+  strlcpySafe(c.owm.city, "Beograd,RS", sizeof(c.owm.city));
+  c.owm.intervalMin = 15;
+  strlcpySafe(c.owm.label, "Napolju", sizeof(c.owm.label));
+  c.owm.showTemp = true;
 }
 
 // ---------------------------------------------------------------- validacija
@@ -225,6 +231,13 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   if (s.tOffset < -100 || s.tOffset > 100) ctx.fail("sens.tOff", F("opseg -10 do +10 °C"));
   if (s.hOffset < -200 || s.hOffset > 200) ctx.fail("sens.hOff", F("opseg -20 do +20 %"));
 
+  const WeatherConfig& w = c.owm;
+  for (const char* p = w.key; *p; p++)
+    if (!isalnum((uint8_t)*p)) ctx.fail("owm.key", F("API ključ sme da sadrži samo slova i cifre"));
+  if (!allPrintable(w.city) || !allPrintable(w.label)) ctx.fail("owm", F("nedozvoljeni znakovi"));
+  if (w.intervalMin < 10 || w.intervalMin > 180) ctx.fail("owm.interval", F("opseg 10-180 min"));
+  if (w.enabled && (!w.key[0] || !w.city[0])) ctx.fail("owm", F("unesite API ključ i grad"));
+
   if (m.enabled) {
     if (!m.host[0]) ctx.fail("mqtt.host", F("unesite adresu brokera"));
     if (m.port == 0) ctx.fail("mqtt.port", F("opseg 1-65535"));
@@ -320,6 +333,20 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   se["showT"] = c.sens.showTemp;
   se["showH"] = c.sens.showHum;
   se["showP"] = c.sens.showPress;
+
+  JsonObject ow = o["owm"].to<JsonObject>();
+  ow["on"] = c.owm.enabled;
+  if (secrets) ow["key"] = c.owm.key;
+  else ow["keySet"] = c.owm.key[0] != '\0';
+  ow["city"] = c.owm.city;
+  ow["interval"] = c.owm.intervalMin;
+  ow["label"] = c.owm.label;
+  ow["showT"] = c.owm.showTemp;
+  ow["showF"] = c.owm.showFeels;
+  ow["showH"] = c.owm.showHum;
+  ow["showP"] = c.owm.showPress;
+  ow["showW"] = c.owm.showWind;
+  ow["showD"] = c.owm.showDesc;
 }
 
 void configToJson(const Config& c, JsonObject o) { toJson(c, o, false); }
@@ -462,6 +489,27 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(se, "showT", c.sens.showTemp, ctx);
     getBool(se, "showH", c.sens.showHum, ctx);
     getBool(se, "showP", c.sens.showPress, ctx);
+  }
+
+  JsonObjectConst ow = o["owm"];
+  if (!ow.isNull()) {
+    getBool(ow, "on", c.owm.enabled, ctx);
+    JsonVariantConst k = ow["key"];
+    if (k.is<const char*>() && k.as<const char*>()[0]) getStr(ow, "key", c.owm.key, sizeof(c.owm.key), ctx);
+    getStr(ow, "city", c.owm.city, sizeof(c.owm.city), ctx);
+    getInt(ow, "interval", 10, 180, c.owm.intervalMin, ctx);
+    getBool(ow, "showT", c.owm.showTemp, ctx);
+    getBool(ow, "showF", c.owm.showFeels, ctx);
+    getBool(ow, "showH", c.owm.showHum, ctx);
+    getBool(ow, "showP", c.owm.showPress, ctx);
+    getBool(ow, "showW", c.owm.showWind, ctx);
+    getBool(ow, "showD", c.owm.showDesc, ctx);
+    JsonVariantConst lb = ow["label"];
+    if (!lb.isNull()) {
+      const char* s = lb.is<const char*>() ? lb.as<const char*>() : "";
+      if (strlen(s) >= sizeof(c.owm.label)) ctx.fail("owm.label", F("predugačak natpis"));
+      else sanitizeUtf8(c.owm.label, s, sizeof(c.owm.label));
+    }
   }
 
   if (!ctx.ok) return false;

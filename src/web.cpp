@@ -19,6 +19,7 @@
 #include "system.h"
 #include "text.h"
 #include "timesync.h"
+#include "weather.h"
 
 constexpr size_t MAX_BODY = 4096;      // najveće prihvaćeno telo zahteva
 constexpr size_t MAX_RENDER_TEXT = 64; // pregled fonta
@@ -154,6 +155,24 @@ static void handleStatus() {
   if (sensorHumidity(v)) se["h"] = serialized(String(v, 1));
   if (sensorPressure(v)) se["p"] = serialized(String(v, 1));
 
+  JsonObject ow = doc["owm"].to<JsonObject>();
+  ow["on"] = cfg.owm.enabled;
+  ow["state"] = weatherStateText();
+  ow["err"] = weatherError();
+  ow["place"] = weatherPlace();
+  ow["age"] = weatherAgeS();
+  ow["ok"] = weatherOkCount();
+  ow["errors"] = weatherErrorCount();
+  WeatherData wd;
+  if (weatherData(wd)) {
+    ow["t"] = serialized(String(wd.temp, 1));
+    ow["feels"] = serialized(String(wd.feels, 1));
+    ow["hum"] = wd.humidity;
+    ow["press"] = wd.pressure;
+    ow["wind"] = serialized(String(wd.wind, 1));
+    ow["desc"] = wd.desc;
+  }
+
   JsonObject d = doc["disp"].to<JsonObject>();
   d["item"] = displayItemName();
   d["mode"] = displayModeKey(displayMode());
@@ -256,6 +275,8 @@ static void handleAction() {
     displayTest();
   } else if (!strcmp(cmd, "portal")) {
     portalStart("zahtev iz web UI");
+  } else if (!strcmp(cmd, "owm")) {
+    weatherRefresh();
   } else if (!strcmp(cmd, "page")) {
     long page = doc["page"] | -1L;
     if (page < 0 || page >= PAGE_COUNT) return sendError(400, "nepoznata stranica");

@@ -26,3 +26,5 @@ void monthName(char* dst, size_t size, int mon, bool cyr, bool abbr);
 
 // Latinični srpski tekst -> ćirilica (lj, nj, dž kao jedno slovo). Za sistemske poruke.
 void latinToCyrillic(const char* in, char* out, size_t outSize);
+// Ćirilica -> latinica (npr. opis vremena sa servera kad je izabrana latinica)
+void cyrillicToLatin(const char* in, char* out, size_t outSize);

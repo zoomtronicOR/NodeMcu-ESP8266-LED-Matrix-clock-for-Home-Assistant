@@ -155,16 +155,19 @@ static const Translit TRANSLIT[] PROGMEM = {
     {"u", "у"}, {"f", "ф"}, {"h", "х"}, {"c", "ц"}, {"č", "ч"}, {"š", "ш"},
 };
 
-void latinToCyrillic(const char* in, char* out, size_t outSize) {
+// toCyr: latinica -> ćirilica; inače ćirilica -> latinica (Љ -> Lj: prvi par u tabeli)
+static void transliterate(const char* in, char* out, size_t outSize, bool toCyr) {
   size_t n = 0;
   while (*in && n + 1 < outSize) {
     bool done = false;
     for (const Translit& t : TRANSLIT) {
-      size_t l = strlen(t.lat);
-      if (strncmp(in, t.lat, l) == 0) {
-        size_t cl = strlen(t.cyr);
+      const char* from = toCyr ? t.lat : t.cyr;
+      const char* to = toCyr ? t.cyr : t.lat;
+      size_t l = strlen(from);
+      if (strncmp(in, from, l) == 0) {
+        size_t cl = strlen(to);
         if (n + cl >= outSize) { out[n] = '\0'; return; }
-        memcpy(out + n, t.cyr, cl);
+        memcpy(out + n, to, cl);
         n += cl;
         in += l;
         done = true;
@@ -175,3 +178,6 @@ void latinToCyrillic(const char* in, char* out, size_t outSize) {
   }
   out[n] = '\0';
 }
+
+void latinToCyrillic(const char* in, char* out, size_t outSize) { transliterate(in, out, outSize, true); }
+void cyrillicToLatin(const char* in, char* out, size_t outSize) { transliterate(in, out, outSize, false); }

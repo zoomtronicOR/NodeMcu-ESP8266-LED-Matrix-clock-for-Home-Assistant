@@ -16,6 +16,7 @@
 #include "sensors.h"
 #include "system.h"
 #include "timesync.h"
+#include "weather.h"
 #include "web.h"
 
 void setup() {
@@ -38,6 +39,7 @@ void setup() {
   webBegin();
   mqttBegin();
   otaBegin();
+  weatherBegin();
   LOG("Spreman, slobodan heap %u B", ESP.getFreeHeap());
 }
 
@@ -49,6 +51,7 @@ void loop() {
   webLoop();
   mqttLoop();
   sensorLoop();
+  weatherLoop();
   consoleLoop();
   systemLoop();
   diagLoop(micros() - t0);
