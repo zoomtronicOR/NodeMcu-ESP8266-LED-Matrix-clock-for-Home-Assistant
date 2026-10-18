@@ -8,7 +8,13 @@ static_assert(FONT_COUNT == 4, "FontId enum ne odgovara tools/gen_fonts.py");
 const uint8_t* fontData(uint8_t id) { return FONT_TABLE[id < FONT_COUNT ? id : 0]; }
 const char* fontName(uint8_t id) { return FONT_NAMES[id < FONT_COUNT ? id : 0]; }
 uint8_t fontCount() { return FONT_COUNT; }
-uint8_t glyphColonBlank() { return GLYPH_COLON_BLANK; }
+char glyphColon(uint8_t style, bool blank) {
+  switch (style) {
+    case 0: return (char)(blank ? GLYPH_COLON1_BLANK : GLYPH_COLON1);
+    case 2: return (char)(blank ? GLYPH_COLON4_BLANK : GLYPH_COLON4);
+    default: return (char)(blank ? GLYPH_COLON2_BLANK : GLYPH_COLON2);
+  }
+}
 uint8_t glyphDegree() { return GLYPH_DEGREE; }
 
 // ---------------------------------------------------------------- UTF-8

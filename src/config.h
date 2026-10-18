@@ -13,6 +13,7 @@ enum ScrollDir : uint8_t { SCROLL_LEFT = 0, SCROLL_RIGHT, SCROLL_UP, SCROLL_DOWN
 enum NightMode : uint8_t { NIGHT_DIM = 0, NIGHT_OFF };
 constexpr uint8_t DATE_FORMAT_COUNT = 6;
 constexpr uint8_t HW_TYPE_COUNT = 12;  // MD_MAX72XX::moduleType_t
+constexpr uint8_t COLON_STYLE_COUNT = 3;
 
 struct Message {
   bool enabled;
@@ -64,6 +65,7 @@ struct Config {
   uint8_t hwType;
   uint8_t modules;   // broj MAX7219 modula u lancu (MODULES_MIN..MODULES_MAX)
   uint8_t timeFont;  // indeks u FONT_TABLE (1..3)
+  uint8_t colonStyle;  // dvotačka sata: 0 = 1+1, 1 = 2+2, 2 = 4+4 piksela
   uint8_t brightDay, brightNight, brightMax;  // 0..15
   bool nightEnabled;
   uint16_t nightStart, nightEnd;  // minuti od ponoći

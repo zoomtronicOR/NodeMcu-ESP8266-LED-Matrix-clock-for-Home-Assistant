@@ -151,3 +151,33 @@
 .
 .
 
+# Dvotačke sata (izbor u web UI: 1+1, 2+2, 4+4 piksela); prazne verzije pravi generator.
+[colon1]
+.
+.
+#
+.
+#
+.
+.
+.
+
+[colon2]
+.
+#
+#
+.
+#
+#
+.
+.
+
+[colon4]
+..
+##
+##
+..
+##
+##
+..
+..

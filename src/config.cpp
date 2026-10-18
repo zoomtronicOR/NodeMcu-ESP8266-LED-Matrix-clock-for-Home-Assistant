@@ -37,6 +37,7 @@ void configDefaults(Config& c) {
   c.hwType = 1;  // FC16_HW — najčešći 4-u-1 moduli
   c.modules = 4;
   c.timeFont = 1;
+  c.colonStyle = 1;  // 2+2
   c.brightDay = 4;
   c.brightNight = 1;
   c.brightMax = 10;
@@ -188,6 +189,7 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   if (c.hwType >= HW_TYPE_COUNT) ctx.fail("hw", F("nepoznat tip modula"));
   if (c.modules < MODULES_MIN || c.modules > MODULES_MAX) ctx.fail("modules", F("opseg 4-16"));
   if (c.timeFont < TIME_FONT_FIRST || c.timeFont > TIME_FONT_LAST) ctx.fail("timeFont", F("nepoznat font"));
+  if (c.colonStyle >= COLON_STYLE_COUNT) ctx.fail("colon", F("nepoznat izgled dvotačke"));
   if (c.brightDay > 15 || c.brightNight > 15 || c.brightMax > 15) ctx.fail("osvetljaj", F("opseg 0-15"));
   if (c.nightStart >= 1440 || c.nightEnd >= 1440) ctx.fail("noć", F("neispravno vreme"));
   if (c.nightMode > NIGHT_OFF) ctx.fail("nMode", F("nepoznat režim"));
@@ -258,6 +260,7 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   d["hw"] = c.hwType;
   d["modules"] = c.modules;
   d["timeFont"] = c.timeFont;
+  d["colon"] = c.colonStyle;
   d["bDay"] = c.brightDay;
   d["bNight"] = c.brightNight;
   d["bMax"] = c.brightMax;
@@ -364,6 +367,7 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getInt(d, "hw", 0, HW_TYPE_COUNT - 1, c.hwType, ctx);
     getInt(d, "modules", MODULES_MIN, MODULES_MAX, c.modules, ctx);
     getInt(d, "timeFont", TIME_FONT_FIRST, TIME_FONT_LAST, c.timeFont, ctx);
+    getInt(d, "colon", 0, COLON_STYLE_COUNT - 1, c.colonStyle, ctx);
     getInt(d, "bDay", 0, 15, c.brightDay, ctx);
     getInt(d, "bNight", 0, 15, c.brightNight, ctx);
     getInt(d, "bMax", 0, 15, c.brightMax, ctx);

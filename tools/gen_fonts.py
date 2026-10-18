@@ -9,15 +9,19 @@ Format .txt fajla:
     [A]            <- znak (ASCII ili Unicode); slede tačno 8 redova glifa
     .###.
     ...
+    [colon2]       <- imenovani glif (mala slova/cifre/_): dobija kod i #define GLYPH_COLON2;
+                      za imena "colon*" automatski nastaje i prazan "colon*_blank" iste širine
+                      (trepćuća dvotačka bez pomeranja cifara)
     alias АВЕ = ABE    <- Unicode znakovi levo koriste glif znaka desno (isti kod)
 
-Kodovi:  ASCII 0x20..0x7E imaju svoj kod; 0x7F je "prazna dvotačka" (širina kao ':')
-za trepćuću dvotačku; ostali Unicode znakovi dobijaju kodove od 0x80 redom pojavljivanja
-(zajedničko za sve fontove). Znak koji font ne sadrži dobija zamenski glif '[?box]'.
+Kodovi:  ASCII 0x20..0x7E imaju svoj kod; ostali Unicode znakovi i imenovani glifovi dobijaju
+kodove od 0x80 redom pojavljivanja (zajedničko za sve fontove). Znak koji font ne sadrži
+dobija zamenski glif '[?box]'.
 
 Pokreće se automatski kao PlatformIO pre-script, ili ručno: python tools/gen_fonts.py
 """
 import os
+import re
 import sys
 
 try:
@@ -37,7 +41,6 @@ FONTS = [
     ("time_narrow.txt", "FONT_TIME_NARROW", "Sat uski"),
 ]
 
-COLON_BLANK = 0x7F
 REPLACEMENT_KEY = "?box"
 FIRST_EXT_CODE = 0x80
 
@@ -70,7 +73,7 @@ def parse_font(path):
             key = line[1:-1]
             if key == "space":
                 key = " "
-            if len(key) != 1 and key != REPLACEMENT_KEY:
+            if len(key) != 1 and key != REPLACEMENT_KEY and not re.fullmatch(r"[a-z][a-z0-9_]*", key):
                 fail(path, i + 1, "neispravna oznaka glifa %r" % key)
             rows = [r.strip() for r in lines[i + 1:i + 9]]
             if len(rows) != 8:
@@ -91,6 +94,10 @@ def parse_font(path):
             i += 9
             continue
         fail(path, i + 1, "nepoznat red %r" % raw)
+    # prazne verzije dvotački (iste širine) za treptanje bez pomeranja cifara
+    for k in list(glyphs):
+        if len(k) > 1 and k.startswith("colon") and k + "_blank" not in glyphs:
+            glyphs[k + "_blank"] = [0] * len(glyphs[k])
     return glyphs, aliases
 
 
@@ -101,7 +108,7 @@ def generate():
     for fname, cname, title in FONTS:
         glyphs, aliases = parse_font(os.path.join(FONT_DIR, fname))
         for key in glyphs:
-            if len(key) == 1 and not (0x20 <= ord(key) <= 0x7E) and key not in ext_codes:
+            if (len(key) > 1 or not (0x20 <= ord(key) <= 0x7E)) and key != REPLACEMENT_KEY and key not in ext_codes:
                 ext_codes[key] = FIRST_EXT_CODE + len(ext_codes)
         for src, dst in aliases:
             prev = alias_map.get(src)
@@ -124,28 +131,25 @@ def generate():
     out.append("// GENERISANO: tools/gen_fonts.py iz tools/fonts/*.txt — ne menjati ručno\n")
     out.append("#pragma once\n#include <Arduino.h>\n\n")
     out.append("#define FONT_COUNT %d\n" % len(fonts))
-    out.append("#define GLYPH_COLON_BLANK 0x%02X\n" % COLON_BLANK)
     out.append("#define GLYPH_REPLACEMENT 0x%02X\n" % ext_codes[REPLACEMENT_KEY])
     if "°" in ext_codes:
         out.append("#define GLYPH_DEGREE 0x%02X\n" % ext_codes["°"])
+    for k, code in ext_codes.items():
+        if len(k) > 1 and k != REPLACEMENT_KEY:
+            out.append("#define GLYPH_%s 0x%02X\n" % (k.upper(), code))
     out.append("\n")
 
     sizes = []
     for cname, title, glyphs in fonts:
         repl = glyphs.get(REPLACEMENT_KEY, [])
-        colon = glyphs.get(":", [])
         data = [ord("F"), 1, 0x20, last_code, 8]
         comments = []
         for code in range(0x20, last_code + 1):
-            if code == COLON_BLANK:
-                cols, label = [0] * len(colon), "prazna ':'"
+            key = chr(code) if code < 0x80 else next((k for k, v in ext_codes.items() if v == code), None)
+            if key in glyphs:
+                cols, label = glyphs[key], key
             else:
-                key = chr(code) if code < 0x80 else next(
-                    (k for k, v in ext_codes.items() if v == code), None)
-                if key in glyphs:
-                    cols, label = glyphs[key], key
-                else:
-                    cols, label = repl, "(zamena za %s)" % key
+                cols, label = repl, "(zamena za %s)" % key
             data.append(len(cols))
             data.extend(cols)
             comments.append((code, label, cols))
@@ -163,7 +167,7 @@ def generate():
     # Unicode -> kod (sortirano po kodnoj tački, za binarnu pretragu)
     umap = {}
     for ch, code in ext_codes.items():
-        if ch != REPLACEMENT_KEY:
+        if len(ch) == 1:  # imenovani glifovi nemaju Unicode znak
             umap[ord(ch)] = code
     for src, dst in alias_map.items():
         umap[ord(src)] = code_of(dst)

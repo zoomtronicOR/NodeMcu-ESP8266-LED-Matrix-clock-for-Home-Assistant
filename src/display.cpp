@@ -103,14 +103,20 @@ static void startUtf8(Item it, const char* text, uint8_t font, uint16_t holdMs) 
 // izabrani font sata; ako najširi zapis vremena ne staje na ekran (npr. sa sekundama na 4 modula) — uski
 static uint8_t timeFontId() {
   uint8_t cols[64];
-  const char* widest = cfg.showSeconds ? "00:00:00" : "00:00";
+  char c = glyphColon(cfg.colonStyle, false);
+  char widest[9] = {'0', '0', c, '0', '0', 0, 0, 0, 0};
+  if (cfg.showSeconds) {
+    widest[5] = c;
+    widest[6] = widest[7] = '0';
+  }
   if (renderColumns(cfg.timeFont, widest, cols, sizeof(cols)) <= displayCols) return cfg.timeFont;
   return FONT_ID_TIME_NARROW;
 }
 
 static void buildTime(char* out, size_t size) {
   if (!timeValid()) {
-    strlcpySafe(out, cfg.showSeconds ? "--:--:--" : "--:--", size);
+    char c = glyphColon(cfg.colonStyle, false);
+    snprintf_P(out, size, cfg.showSeconds ? PSTR("--%c--%c--") : PSTR("--%c--"), c, c);
     return;
   }
   struct timeval tv;
@@ -118,7 +124,7 @@ static void buildTime(char* out, size_t size) {
   struct tm t;
   localtime_r(&tv.tv_sec, &t);
   int h = cfg.h24 ? t.tm_hour : (t.tm_hour % 12 ? t.tm_hour % 12 : 12);
-  char colon = (cfg.blinkColon && tv.tv_usec >= 500000) ? (char)glyphColonBlank() : ':';
+  char colon = glyphColon(cfg.colonStyle, cfg.blinkColon && tv.tv_usec >= 500000);
   int n = snprintf_P(out, size, cfg.leadingZero ? PSTR("%02d%c%02d") : PSTR("%d%c%02d"), h, colon, t.tm_min);
   if (cfg.showSeconds && n > 0 && (size_t)n < size) snprintf_P(out + n, size - n, PSTR("%c%02d"), colon, t.tm_sec);
 }

@@ -7,7 +7,8 @@ enum FontId : uint8_t { FONT_ID_TEXT = 0, FONT_ID_TIME_STD, FONT_ID_TIME_BOLD, F
 const uint8_t* fontData(uint8_t id);  // PROGMEM, format MD_MAX72XX 'F' v1
 const char* fontName(uint8_t id);
 uint8_t fontCount();
-uint8_t glyphColonBlank();
+// dvotačka sata: style 0 = 1+1, 1 = 2+2, 2 = 4+4 piksela; blank = prazna iste širine (treptanje)
+char glyphColon(uint8_t style, bool blank);
 uint8_t glyphDegree();
 
 // UTF-8 -> jednobajtni kodovi fonta. Nepoznati znakovi -> zamenski glif, neispravan
