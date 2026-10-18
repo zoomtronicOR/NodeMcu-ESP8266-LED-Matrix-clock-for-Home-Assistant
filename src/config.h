@@ -63,7 +63,7 @@ struct Config {
   bool blinkColon;
   bool leadingZero;
   uint8_t dateFormat;
-  uint8_t dateDot;  // tačke u datumu: 0 = 1, 1 = 2, 2 = 4 piksela
+  uint8_t dateDot;  // tačke u datumu i temperaturi: 0 = 1, 1 = 2, 2 = 4 piksela
   bool dateNarrow;  // brojčani datum uskim ciframa (korisno na 3-4 modula)
   bool cyrillic;
 
