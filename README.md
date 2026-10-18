@@ -137,6 +137,73 @@ upload fajl sistema.
 
 Web interfejs je namenjen lokalnoj mreži; ne izlagati ga internetu.
 
+## Kad sat ne nađe poznatu Wi-Fi mrežu
+
+Ako mreža **nije podešena** (prvo pokretanje ili posle fabričkih podešavanja), pristupna tačka
+`MatrixClock-XXXX` se pokreće odmah. Ako je podešena, ali nije dostupna, pristupna tačka se pokreće
+posle **5 neuspelih pokušaja povezivanja**, oko 3 minuta:
+
+| Pokušaj | Trajanje pokušaja | Pauza posle njega |
+|---|---|---|
+| 1 | do 20 s | 5 s |
+| 2 | do 20 s | 10 s |
+| 3 | do 20 s | 20 s |
+| 4 | do 20 s | 40 s |
+| 5 | do 20 s | → pokreće se pristupna tačka |
+
+Ako sat odmah dobije odgovor (na primer, pogrešna lozinka), pokušaj traje kraće i pristupna tačka se
+pokreće posle oko 1,5 minuta. Broj pokušaja se menja na kartici **Mreža → „Pristupna tačka posle
+neuspelih pokušaja“** (1–50).
+
+- **Veza je postojala, pa je nestala** (na primer, ugašen ruter): pristupna tačka se tada **ne pokreće**
+  automatski. Sat pokušava ponovo sa pauzama koje rastu od 5 s do 5 min i sam se vraća na mrežu. Tako
+  nestanak struje ili restart rutera ne ostavlja sat u režimu podešavanja.
+- **Ručno:** pristupna tačka se pokreće i posle 3 s držanja tastera FLASH (NodeMCU) ili BOOT (ESP32-C3),
+  iz web UI-ja ili komandom `portal` na serijskoj konzoli.
+- Dok pristupna tačka radi, sat i dalje pokušava da se poveže na poznatu mrežu. Kad uspe, pristupna tačka
+  se gasi, ali tek kad je radila najmanje 2 minuta i kad 1 minut niko nije povezan na nju.
+
+Bez Wi-Fi-ja sat ne zna tačno vreme (nema bateriju ni RTC), pa prikazuje `--:--` dok se ne poveže.
+
+## Pre nego što sat poklonite ili prodate
+
+Sat će raditi i kod novog vlasnika: ne nađe vašu mrežu, posle oko 3 minuta pokrene pristupnu tačku
+i novi vlasnik unese svoj Wi-Fi. Ipak, **pre toga vratite sat na fabrička podešavanja**, jer u njemu
+ostaju vaši podaci:
+
+- **Lozinka vašeg Wi-Fi-ja.** Web UI je nikad ne prikazuje. Ipak, ko pročita flash preko USB-a (esptool),
+  može da je izvuče, jer je u konfiguraciji kao običan tekst.
+- **MQTT nalog** (korisnik, lozinka, adresa brokera). Sat bi kod novog vlasnika uzalud pokušavao da se
+  poveže na vaš broker.
+- **OpenWeatherMap API ključ.** Sat bi nastavio da ga troši sa tuđe mreže.
+- **Admin lozinka.** Novi vlasnik ne bi mogao da otvori web UI.
+- **Promenjena lozinka pristupne tačke.** Novi vlasnik ne bi mogao da se poveže na pristupnu tačku.
+
+Dok je sat još kod vas i povezan na vašu mrežu:
+
+- **Web UI:** Sistem → **Fabrička podešavanja** (traži potvrdu), ili
+- **serijska konzola** (USB, 115200): komanda `factory`.
+
+Sat briše sva podešavanja i restartuje se. Pristupna tačka se odmah pokreće sa podrazumevanom lozinkom
+`matrica123`, a firmware ostaje isti.
+
+Fabrička podešavanja brišu fajl sa podešavanjima, pa ih sat više ne koristi i ne prikazuje. Stari
+sadržaj ipak može fizički da ostane u flash memoriji, dok ga nešto drugo ne prepiše. Da biste i to
+obrisali, preko USB-a obrišite ceo flash i ponovo upišite firmware:
+
+```
+pio run -t erase                 # briše ceo flash (NodeMCU); za ESP32-C3: pio run -e esp32c3 -t erase
+pio run -t upload                # ponovo upisuje firmware; za ESP32-C3: pio run -e esp32c3 -t upload
+```
+
+Posle toga sat se ponaša kao potpuno nov, kao posle fabričkih podešavanja. Ako ima više ili manje od 4 modula, broj i tip modula podesite
+posle fabričkih podešavanja, preko pristupne tačke (`http://192.168.4.1`, kartica Prikaz).
+
+Novom vlasniku je dovoljno da kažete:
+
+> Uključi sat, poveži telefon na Wi-Fi mrežu `MatrixClock-XXXX` (lozinka `matrica123`), otvori
+> `http://192.168.4.1` i na kartici **Mreža** izaberi svoju mrežu.
+
 ## Spoljna temperatura (OpenWeatherMap)
 
 Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.org/)-a. Koristi se API
