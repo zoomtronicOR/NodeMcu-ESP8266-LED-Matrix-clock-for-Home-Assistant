@@ -184,11 +184,13 @@ struct Entity {
   const char* object;
 };
 static const Entity ENTITIES[] = {
-    {"sensor", "rssi"},  {"sensor", "uptime"},     {"sensor", "heap"},  {"sensor", "ntp"},
+    {"sensor", "rssi"},  {"sensor", "uptime_txt"}, {"sensor", "heap"},  {"sensor", "ntp"},
     {"sensor", "ip"},    {"number", "brightness"}, {"select", "mode"},  {"select", "page"},
     {"text", "message"}, {"button", "test"},       {"button", "restart"},
     {"sensor", "temperature"}, {"sensor", "humidity"}, {"sensor", "pressure"},
+    {"sensor", "uptime"},  // stari brojčani uptime (s) iz 3.1.0 — samo se briše iz HA
 };
+constexpr uint8_t ENTITY_LEGACY_UPTIME = 14;
 constexpr uint8_t ENTITY_COUNT = sizeof(ENTITIES) / sizeof(ENTITIES[0]);
 
 static void buildEntity(uint8_t i, JsonDocument& d) {
@@ -219,12 +221,13 @@ static void buildEntity(uint8_t i, JsonDocument& d) {
       d["ent_cat"] = "diagnostic";
       break;
     case 1:
+      // čitljiv tekst ("3 d 5 h 12 min"); telemetrija i dalje šalje sekunde, HA ih formatira
       d["name"] = "Uptime";
       d["stat_t"] = "~/telemetry";
-      d["val_tpl"] = "{{ value_json.uptime }}";
-      d["unit_of_meas"] = "s";
-      d["dev_cla"] = "duration";
-      d["stat_cla"] = "total_increasing";
+      d["val_tpl"] =
+          "{% set s = value_json.uptime | int %}{% set d = s // 86400 %}"
+          "{{ (d ~ ' d ' if d else '') ~ ((s % 86400) // 3600) ~ ' h ' ~ ((s % 3600) // 60) ~ ' min' }}";
+      d["ic"] = "mdi:timer-outline";
       d["ent_cat"] = "diagnostic";
       break;
     case 2:
@@ -335,6 +338,7 @@ static bool entityAvailable(uint8_t i) {
     case 11: return sensorActiveType() != SENSOR_NONE;
     case 12: return sensorHasHumidity();
     case 13: return sensorHasPressure();
+    case ENTITY_LEGACY_UPTIME: return false;
     default: return true;
   }
 }
