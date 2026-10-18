@@ -14,6 +14,7 @@ enum NightMode : uint8_t { NIGHT_DIM = 0, NIGHT_OFF };
 constexpr uint8_t DATE_FORMAT_COUNT = 6;
 constexpr uint8_t HW_TYPE_COUNT = 12;  // MD_MAX72XX::moduleType_t
 constexpr uint8_t COLON_STYLE_COUNT = 3;
+constexpr uint8_t DATE_DOT_COUNT = 3;
 
 struct Message {
   bool enabled;
@@ -59,6 +60,7 @@ struct Config {
   bool blinkColon;
   bool leadingZero;
   uint8_t dateFormat;
+  uint8_t dateDot;  // tačke u datumu: 0 = 1, 1 = 2, 2 = 4 piksela
   bool cyrillic;
 
   // prikaz

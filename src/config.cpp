@@ -32,6 +32,7 @@ void configDefaults(Config& c) {
   c.blinkColon = true;
   c.leadingZero = true;
   c.dateFormat = 0;
+  c.dateDot = 0;  // 1 piksel
   c.cyrillic = false;
 
   c.hwType = 1;  // FC16_HW — najčešći 4-u-1 moduli
@@ -185,6 +186,7 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   }
   if (!anyNtp) ctx.fail("ntp", F("potreban je bar jedan NTP server"));
   if (c.dateFormat >= DATE_FORMAT_COUNT) ctx.fail("dateFmt", F("nepoznat format"));
+  if (c.dateDot >= DATE_DOT_COUNT) ctx.fail("dot", F("nepoznat izgled tačke"));
 
   if (c.hwType >= HW_TYPE_COUNT) ctx.fail("hw", F("nepoznat tip modula"));
   if (c.modules < MODULES_MIN || c.modules > MODULES_MAX) ctx.fail("modules", F("opseg 4-16"));
@@ -254,6 +256,7 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   t["blink"] = c.blinkColon;
   t["lead0"] = c.leadingZero;
   t["dateFmt"] = c.dateFormat;
+  t["dot"] = c.dateDot;
   t["cyr"] = c.cyrillic;
 
   JsonObject d = o["disp"].to<JsonObject>();
@@ -359,6 +362,7 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(t, "blink", c.blinkColon, ctx);
     getBool(t, "lead0", c.leadingZero, ctx);
     getInt(t, "dateFmt", 0, DATE_FORMAT_COUNT - 1, c.dateFormat, ctx);
+    getInt(t, "dot", 0, DATE_DOT_COUNT - 1, c.dateDot, ctx);
     getBool(t, "cyr", c.cyrillic, ctx);
   }
 

@@ -96,6 +96,12 @@ static void startUtf8(Item it, const char* text, uint8_t font, uint16_t holdMs) 
   itemT0 = millis();
   utf8ToGlyphs(text, glyphs, sizeof(glyphs));
   if (!glyphs[0]) strlcpySafe(glyphs, " ", sizeof(glyphs));  // prazan tekst: kontrolisano
+  if (it == IT_DATE) {
+    // tačke u datumu u izabranoj veličini (obična '.' u porukama ostaje)
+    char dot = glyphDateDot(cfg.dateDot);
+    for (char* p = glyphs; *p; p++)
+      if (*p == '.') *p = dot;
+  }
   showGlyphs(font, holdMs);
 }
 

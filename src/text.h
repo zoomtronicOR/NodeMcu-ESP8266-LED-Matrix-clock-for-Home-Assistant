@@ -9,6 +9,8 @@ const char* fontName(uint8_t id);
 uint8_t fontCount();
 // dvotačka sata: style 0 = 1+1, 1 = 2+2, 2 = 4+4 piksela; blank = prazna iste širine (treptanje)
 char glyphColon(uint8_t style, bool blank);
+// tačka u datumu: style 0 = 1, 1 = 2, 2 = 4 piksela
+char glyphDateDot(uint8_t style);
 uint8_t glyphDegree();
 
 // UTF-8 -> jednobajtni kodovi fonta. Nepoznati znakovi -> zamenski glif, neispravan

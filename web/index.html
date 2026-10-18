@@ -141,6 +141,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label class="chk"><input type="checkbox" data-k="time.lead0"> Vodeća nula u satima</label>
 <label class="chk"><input type="checkbox" data-k="time.cyr"> Ćirilica (dani, meseci, poruke sistema)</label>
 <label>Format datuma<select data-k="time.dateFmt"><option value="0">17.10.2026.</option><option value="1">17.10.</option><option value="2">17. okt 2026.</option><option value="3">17. oktobar 2026.</option><option value="4">2026-10-17</option><option value="5">sub 17.10.</option></select></label>
+<label>Tačke u datumu<select data-k="time.dot" id="dateDot"><option value="0">1 piksel</option><option value="1">2 piksela</option><option value="2">4 piksela (2×2)</option></select></label>
 </div></div>
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="apply">Primeni</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
 </section>
@@ -363,6 +364,10 @@ function preview(){clearTimeout(pvT);pvT=setTimeout(async()=>{
 },300)}
 // font sata se vidi tek na matrici: primeni odmah po izboru (Sačuvaj ga čuva trajno)
 ["#timeFont","#colon"].forEach(id=>$(id).addEventListener("change",()=>$("#prikaz [data-act=apply]").click()));
+// tačke u datumu: primeni i odmah prikaži datum na matrici
+$("#dateDot").addEventListener("change",async()=>{
+  try{await api("/api/config",sectionPayload("vreme"));await api("/api/action",{cmd:"page",page:1});toast("Primenjeno (nije sačuvano) — datum je na matrici.")}catch(e){toast(e.message,1)}
+});
 $("#pvText").addEventListener("input",preview);$("#pvFont").addEventListener("change",preview);$("#modules").addEventListener("change",preview);
 $("#prikaz").addEventListener("input",e=>{if(e.target.type==="range")updRanges()});
 

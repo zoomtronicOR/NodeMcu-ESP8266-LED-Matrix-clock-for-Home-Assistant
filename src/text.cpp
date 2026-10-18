@@ -8,6 +8,14 @@ static_assert(FONT_COUNT == 4, "FontId enum ne odgovara tools/gen_fonts.py");
 const uint8_t* fontData(uint8_t id) { return FONT_TABLE[id < FONT_COUNT ? id : 0]; }
 const char* fontName(uint8_t id) { return FONT_NAMES[id < FONT_COUNT ? id : 0]; }
 uint8_t fontCount() { return FONT_COUNT; }
+char glyphDateDot(uint8_t style) {
+  switch (style) {
+    case 0: return (char)GLYPH_DOT1;
+    case 2: return (char)GLYPH_DOT4;
+    default: return (char)GLYPH_DOT2;
+  }
+}
+
 char glyphColon(uint8_t style, bool blank) {
   switch (style) {
     case 0: return (char)(blank ? GLYPH_COLON1_BLANK : GLYPH_COLON1);

@@ -256,6 +256,10 @@ static void handleAction() {
     displayTest();
   } else if (!strcmp(cmd, "portal")) {
     portalStart("zahtev iz web UI");
+  } else if (!strcmp(cmd, "page")) {
+    long page = doc["page"] | -1L;
+    if (page < 0 || page >= PAGE_COUNT) return sendError(400, "nepoznata stranica");
+    displayShowPage((uint8_t)page);
   } else if (!strcmp(cmd, "mode")) {
     DisplayMode m;
     if (!displayModeFromKey(doc["mode"] | "", m)) return sendError(400, "nepoznat režim prikaza");
