@@ -3,7 +3,7 @@
 #include "app.h"
 #include "generated/fonts.h"
 
-static_assert(FONT_COUNT == 4, "FontId enum ne odgovara tools/gen_fonts.py");
+static_assert(FONT_COUNT == 5, "FontId enum ne odgovara tools/gen_fonts.py");
 
 const uint8_t* fontData(uint8_t id) { return FONT_TABLE[id < FONT_COUNT ? id : 0]; }
 const char* fontName(uint8_t id) { return FONT_NAMES[id < FONT_COUNT ? id : 0]; }

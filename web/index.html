@@ -201,6 +201,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label class="chk"><input type="checkbox" data-k="owm.showW"> Brzina vetra</label>
 <label class="chk"><input type="checkbox" data-k="owm.showWD"> Pravac vetra (S, SI, I, JI, J, JZ, Z, SZ)</label>
 <label class="chk"><input type="checkbox" data-k="owm.showD"> Opis vremena (npr. „slaba kiša“)</label>
+<label class="chk"><input type="checkbox" data-k="owm.bold"> Masne cifre (za 6 i više modula)</label>
 </div><table id="owmSt" style="margin-top:12px"></table>
 <div class="btns" style="margin-top:12px"><button class="btn" id="owmNow">Osveži sada</button></div>
 <p class="note">Besplatan ključ: openweathermap.org → „API keys“ (novi ključ proradi u roku od oko 2 h). Sat šalje najviše 1 zahtev u minuti (i „Osveži sada“ čeka da prođe minut); na 15 min to je 96 zahteva dnevno po satu, daleko ispod besplatnog limita. Na matrici redom: natpis pa izabrane stavke („Napolju 12.3°C“ zajedno kad staje); stranica „Napolju“ se uključuje i raspoređuje na kartici „Prikaz“. Zahtev ide preko HTTP-a (HTTPS traži više memorije nego što ESP8266 ima uz ostale funkcije), pa ključ nije šifrovan u prenosu — ne koristite ga ni za šta drugo.</p></div>
@@ -581,7 +582,7 @@ async function loadCfg(netOnly){
     document.querySelectorAll(".btnName").forEach(e=>e.textContent=meta.button);
     let mo="";for(let n=meta.modMin;n<=meta.modMax;n++)mo+=`<option value="${n}">${n} (${n*8} kolona)</option>`;$("#modules").innerHTML=mo;
     initHm();
-    $("#timeFont").innerHTML=meta.fonts.map((f,i)=>i?`<option value="${i}">${f}</option>`:"").join("");
+    $("#timeFont").innerHTML=(meta.timeFonts||[1,2,3]).map(i=>`<option value="${i}">${meta.fonts[i]}</option>`).join("");
     $("#pvFont").innerHTML=meta.fonts.map((f,i)=>`<option value="${i}">${f}</option>`).join("");
     $("#tzSel").innerHTML=TZ.map((z,i)=>`<option value="${i}">${z[0]}</option>`).join("")+'<option value="x">Drugo (POSIX zapis)</option>';
     await loadCfg();await status();

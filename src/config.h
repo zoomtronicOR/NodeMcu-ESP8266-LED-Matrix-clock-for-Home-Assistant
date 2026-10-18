@@ -50,6 +50,7 @@ struct WeatherConfig {  // OpenWeatherMap
   uint16_t intervalMin;
   char label[33];     // natpis na matrici, UTF-8 (npr. "Napolju")
   bool showTemp, showFeels, showHum, showPress, showWind, showWindDir, showDesc;  // šta se prikazuje
+  bool boldDigits;  // stranica "Napolju" fontom sa masnim ciframa i jedinicama
 };
 
 struct Config {

@@ -379,10 +379,12 @@ static void wAdd(const char* s) {
   if (wCount < W_ITEMS_MAX && s[0]) strlcpySafe(wItems[wCount++], s, sizeof(wItems[0]));
 }
 
+static uint8_t weatherFont() { return cfg.owm.boldDigits ? FONT_ID_TEXT_BOLD : FONT_ID_TEXT; }
+
 static bool fitsText(const char* s) {
   char g[64];
   utf8ToGlyphs(s, g, sizeof(g));
-  return textWidth(FONT_ID_TEXT, g) <= displayCols;
+  return textWidth(weatherFont(), g) <= displayCols;
 }
 
 static bool startWeather() {
@@ -436,7 +438,7 @@ static bool startWeather() {
   }
   for (uint8_t i = first; i < n; i++) wAdd(vals[i]);
   weatherStep = 1;
-  startUtf8(IT_WEATHER, wItems[0], FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+  startUtf8(IT_WEATHER, wItems[0], weatherFont(), cfg.infoSeconds * 1000U);
   return true;
 }
 
@@ -524,7 +526,7 @@ static void nextItemInner() {
     }
     if (weatherStep) {  // sledeća stavka stranice "Napolju"
       if (weatherStep < wCount) {
-        startUtf8(IT_WEATHER, wItems[weatherStep++], FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+        startUtf8(IT_WEATHER, wItems[weatherStep++], weatherFont(), cfg.infoSeconds * 1000U);
         return;
       }
       weatherStep = 0;

@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-enum FontId : uint8_t { FONT_ID_TEXT = 0, FONT_ID_TIME_STD, FONT_ID_TIME_BOLD, FONT_ID_TIME_NARROW };
+enum FontId : uint8_t { FONT_ID_TEXT = 0, FONT_ID_TIME_STD, FONT_ID_TIME_BOLD, FONT_ID_TIME_NARROW, FONT_ID_TEXT_BOLD };
 
 const uint8_t* fontData(uint8_t id);  // PROGMEM, format MD_MAX72XX 'F' v1
 const char* fontName(uint8_t id);

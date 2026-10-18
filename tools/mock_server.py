@@ -57,12 +57,13 @@ CONFIG = {
     "mqtt": {"on": True, "host": "192.168.1.10", "port": 1883, "user": "ha_user", "passSet": True,
              "base": "matrix_clock_a1b2", "disc": True, "discPrefix": "homeassistant", "tele": 120},
     "owm": {"on": True, "keySet": True, "city": "Beograd,RS", "interval": 15, "label": "Napolju",
-            "showT": True, "showF": False, "showH": True, "showP": False, "showW": True, "showWD": True, "showD": True},
+            "showT": True, "showF": False, "showH": True, "showP": False, "showW": True, "showWD": True, "showD": True,
+            "bold": False},
     "sens": {"type": 2, "dhtPin": 16, "interval": 30, "tOff": -0.5, "hOff": 0, "showT": True, "showH": True,
              "showP": True},
 }
 
-META = {"fonts": [f[0] for f in FONTS], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16,
+META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16,
         "board": "ESP8266 NodeMCU", "button": "FLASH", "i2c": "SDA → D2, SCL → D1",
         "dhtPins": [{"v": 16, "n": "D0 (GPIO16)"}, {"v": 5, "n": "D1 (GPIO5)"}, {"v": 4, "n": "D2 (GPIO4)"}]}
 

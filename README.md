@@ -169,6 +169,10 @@ Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.
 Decimalna tačka prati izbor „Tačke u datumu i temperaturi“ na kartici Vreme. Ako vrednosti nema ili je
 prestara (posle tri propuštena osvežavanja, a najmanje 1 h), stranica se preskače.
 
+Opcija **Masne cifre** prikazuje stranicu „Napolju“ fontom sa punijim ciframa i jedinicama (°C, %, hPa),
+dok slova ostaju ista. Masne cifre su šire, pa opcija ima smisla od 6 modula naviše. Na 6 modula
+`1016 hPa` i `-4.5°C` staju bez skrolovanja.
+
 **Broj zahteva i besplatni limit:**
 
 - Svaki sat šalje **najviše 1 zahtev u minuti**, bez obzira na razlog: raspored, dugme „Osveži sada“, promena podešavanja ili ponovni pokušaj posle greške. Raniji zahtev se odlaže, a ne odbacuje.

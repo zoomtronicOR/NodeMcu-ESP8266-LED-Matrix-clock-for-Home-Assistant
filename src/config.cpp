@@ -349,6 +349,7 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   ow["showW"] = c.owm.showWind;
   ow["showWD"] = c.owm.showWindDir;
   ow["showD"] = c.owm.showDesc;
+  ow["bold"] = c.owm.boldDigits;
 }
 
 void configToJson(const Config& c, JsonObject o) { toJson(c, o, false); }
@@ -509,6 +510,7 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(ow, "showW", c.owm.showWind, ctx);
     getBool(ow, "showWD", c.owm.showWindDir, ctx);
     getBool(ow, "showD", c.owm.showDesc, ctx);
+    getBool(ow, "bold", c.owm.boldDigits, ctx);
     JsonVariantConst lb = ow["label"];
     if (!lb.isNull()) {
       const char* s = lb.is<const char*>() ? lb.as<const char*>() : "";

@@ -13,6 +13,8 @@ Format .txt fajla:
                       za imena "colon*" automatski nastaje i prazan "colon*_blank" iste širine
                       (trepćuća dvotačka bez pomeranja cifara)
     alias АВЕ = ABE    <- Unicode znakovi levo koriste glif znaka desno (isti kod)
+    base text.txt      <- (pre glifova) preuzima sve glifove i aliase iz drugog fonta;
+                          glifovi navedeni posle toga ih zamenjuju
 
 Kodovi:  ASCII 0x20..0x7E imaju svoj kod; ostali Unicode znakovi i imenovani glifovi dobijaju
 kodove od 0x80 redom pojavljivanja (zajedničko za sve fontove). Znak koji font ne sadrži
@@ -39,6 +41,7 @@ FONTS = [
     ("time_std.txt", "FONT_TIME_STD", "Sat standardni"),
     ("time_bold.txt", "FONT_TIME_BOLD", "Sat masni"),
     ("time_narrow.txt", "FONT_TIME_NARROW", "Sat uski"),
+    ("text_bold.txt", "FONT_TEXT_BOLD", "Tekst sa masnim ciframa"),
 ]
 
 REPLACEMENT_KEY = "?box"
@@ -52,6 +55,7 @@ def fail(path, lineno, msg):
 def parse_font(path):
     glyphs = {}   # key (znak ili '?box') -> lista kolona
     aliases = []  # (unicode znak, ciljni znak)
+    inherited = set()  # glifovi iz "base" fonta, smeju jednom da se zamene
     with open(path, encoding="utf-8") as f:
         lines = f.read().splitlines()
     i = 0
@@ -59,6 +63,14 @@ def parse_font(path):
         raw = lines[i]
         line = raw.strip()
         if not line or line.startswith("#") and not set(line) <= set("#."):
+            i += 1
+            continue
+        if line.startswith("base "):
+            if glyphs:
+                fail(path, i + 1, "base mora biti pre glifova")
+            glyphs, aliases = parse_font(os.path.join(os.path.dirname(path), line[5:].strip()))
+            glyphs = {k: v for k, v in glyphs.items() if not k.endswith("_blank")}
+            inherited = set(glyphs)
             i += 1
             continue
         if line.startswith("alias "):
@@ -88,8 +100,9 @@ def parse_font(path):
                 for c, ch in enumerate(row):
                     if ch == "#":
                         cols[c] |= 1 << r
-            if key in glyphs:
+            if key in glyphs and key not in inherited:
                 fail(path, i + 1, "glif %r je definisan dva puta" % key)
+            inherited.discard(key)
             glyphs[key] = cols
             i += 9
             continue
