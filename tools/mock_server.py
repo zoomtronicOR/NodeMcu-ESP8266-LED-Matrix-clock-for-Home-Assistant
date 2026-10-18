@@ -46,7 +46,7 @@ CONFIG = {
             "adminPassSet": True},
     "time": {"tzName": "Europe/Belgrade", "tz": "CET-1CEST,M3.5.0,M10.5.0/3",
              "ntp": ["pool.ntp.org", "time.google.com", "time.cloudflare.com"],
-             "h24": True, "seconds": False, "secAnim": 1, "blink": True, "lead0": True, "dateFmt": 0, "dot": 0, "dateNarrow": False, "cyr": False},
+             "h24": True, "seconds": False, "anim": 1, "animH": True, "animM": True, "animS": True, "blink": True, "lead0": True, "dateFmt": 0, "dot": 0, "dateNarrow": False, "cyr": False},
     "disp": {"hw": 1, "modules": 4, "timeFont": 1, "colon": 1, "bDay": 6, "bNight": 1, "bMax": 10, "night": True,
              "nStart": 1320, "nEnd": 420, "nMode": 0, "speed": 40, "pause": 1000, "dir": 0, "tSec": 15,
              "iSec": 4, "order": [0, 1, 2, 4, 3], "pages": [True, True, True, True, True]},

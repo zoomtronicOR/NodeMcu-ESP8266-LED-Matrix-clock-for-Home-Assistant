@@ -29,7 +29,8 @@ void configDefaults(Config& c) {
   strlcpySafe(c.ntp[2], "time.cloudflare.com", sizeof(c.ntp[2]));
   c.h24 = true;
   c.showSeconds = false;
-  c.secAnim = SEC_ANIM_UP;
+  c.animDir = ANIM_UP;
+  c.animHour = c.animMin = c.animSec = true;
   c.blinkColon = true;
   c.leadingZero = true;
   c.dateFormat = 0;
@@ -188,7 +189,7 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   }
   if (!anyNtp) ctx.fail("ntp", F("potreban je bar jedan NTP server"));
   if (c.dateFormat >= DATE_FORMAT_COUNT) ctx.fail("dateFmt", F("nepoznat format"));
-  if (c.secAnim > SEC_ANIM_DOWN) ctx.fail("secAnim", F("nepoznata animacija"));
+  if (c.animDir > ANIM_DOWN) ctx.fail("anim", F("nepoznata animacija"));
   if (c.dateDot >= DATE_DOT_COUNT) ctx.fail("dot", F("nepoznat izgled tačke"));
 
   if (c.hwType >= HW_TYPE_COUNT) ctx.fail("hw", F("nepoznat tip modula"));
@@ -256,7 +257,10 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   for (uint8_t i = 0; i < 3; i++) ntp.add(c.ntp[i]);
   t["h24"] = c.h24;
   t["seconds"] = c.showSeconds;
-  t["secAnim"] = c.secAnim;
+  t["anim"] = c.animDir;
+  t["animH"] = c.animHour;
+  t["animM"] = c.animMin;
+  t["animS"] = c.animSec;
   t["blink"] = c.blinkColon;
   t["lead0"] = c.leadingZero;
   t["dateFmt"] = c.dateFormat;
@@ -364,7 +368,10 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     }
     getBool(t, "h24", c.h24, ctx);
     getBool(t, "seconds", c.showSeconds, ctx);
-    getInt(t, "secAnim", 0, SEC_ANIM_DOWN, c.secAnim, ctx);
+    getInt(t, "anim", 0, ANIM_DOWN, c.animDir, ctx);
+    getBool(t, "animH", c.animHour, ctx);
+    getBool(t, "animM", c.animMin, ctx);
+    getBool(t, "animS", c.animSec, ctx);
     getBool(t, "blink", c.blinkColon, ctx);
     getBool(t, "lead0", c.leadingZero, ctx);
     getInt(t, "dateFmt", 0, DATE_FORMAT_COUNT - 1, c.dateFormat, ctx);

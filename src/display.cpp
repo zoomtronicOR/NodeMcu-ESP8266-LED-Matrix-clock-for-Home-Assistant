@@ -143,8 +143,9 @@ static void buildTime(char* out, size_t size) {
 }
 
 // ---------------------------------------------------------------- vreme sa animacijom cifara
-// Uz sekunde i izabranu animaciju vreme crta ovaj modul direktno (Parola ne animira deo teksta):
-// cifra koja se promenila "otkotrlja" se nagore ili nadole u TIME_ANIM_STEPS koraka.
+// Kad je uključena animacija cifara, vreme crta ovaj modul direktno (Parola ne animira deo
+// teksta): cifra koja se promenila "otkotrlja" se nagore ili nadole u TIME_ANIM_STEPS koraka.
+// Sati, minuti i sekunde se biraju posebno (cfg.animHour/animMin/animSec).
 
 constexpr uint8_t TIME_ANIM_STEPS = 8;      // visina matrice
 constexpr uint32_t TIME_ANIM_STEP_MS = 30;  // cela animacija ≈ 0,25 s
@@ -154,9 +155,19 @@ static char tcFrom[12];                     // vreme pre promene (polazne cifre 
 static uint8_t tcStep = TIME_ANIM_STEPS;    // >= TIME_ANIM_STEPS: nema animacije u toku
 static uint32_t tcStepT = 0;
 
-static bool timeCustomWanted() { return tlSec && cfg.secAnim != SEC_ANIM_NONE; }
+static bool timeCustomWanted() {
+  return cfg.animDir != ANIM_NONE && (cfg.animHour || cfg.animMin || (cfg.animSec && tlSec));
+}
 
 static bool isDigitGlyph(char c) { return c >= '0' && c <= '9'; }
+
+// da li se cifra na poziciji i animira: grupa po dvotačkama (0 = sati, 1 = minuti, 2 = sekunde)
+static bool rollAllowed(const char* s, uint8_t i) {
+  uint8_t group = 0;
+  for (uint8_t j = 0; j < i; j++)
+    if (!isDigitGlyph(s[j]) && s[j] != '-') group++;
+  return group == 0 ? cfg.animHour : group == 1 ? cfg.animMin : cfg.animSec;
+}
 
 static void drawTimeFrame() {
   uint8_t font = tlFont;
@@ -174,7 +185,8 @@ static void drawTimeFrame() {
     char cur[2] = {timeGlyphs[i], 0};
     uint8_t now[8], old[8];
     uint16_t w = renderColumns(font, cur, now, sizeof(now), 0);
-    bool roll = anim && tcFrom[i] != timeGlyphs[i] && isDigitGlyph(tcFrom[i]) && isDigitGlyph(timeGlyphs[i]);
+    bool roll = anim && tcFrom[i] != timeGlyphs[i] && isDigitGlyph(tcFrom[i]) && isDigitGlyph(timeGlyphs[i]) &&
+                rollAllowed(timeGlyphs, i);
     if (roll) {
       char prev[2] = {tcFrom[i], 0};
       renderColumns(font, prev, old, sizeof(old), 0);  // cifre su iste širine
@@ -183,8 +195,8 @@ static void drawTimeFrame() {
       uint16_t v = now[c];
       if (roll) {
         // bit0 = gornji red: nagore = stara ide gore (>>), nova dolazi odozdo (<<)
-        v = cfg.secAnim == SEC_ANIM_UP ? (old[c] >> k) | (now[c] << (TIME_ANIM_STEPS - k))
-                                       : (old[c] << k) | (now[c] >> (TIME_ANIM_STEPS - k));
+        v = cfg.animDir == ANIM_UP ? (old[c] >> k) | (now[c] << (TIME_ANIM_STEPS - k))
+                                   : (old[c] << k) | (now[c] >> (TIME_ANIM_STEPS - k));
       }
       if (x + (int16_t)c >= 0) frame[x + c] = (uint8_t)v;
     }
@@ -204,8 +216,9 @@ static void timeCustomLoop() {
     bool digitChanged = false;
     if (strlen(now) == strlen(timeGlyphs))
       for (uint8_t i = 0; now[i]; i++)
-        if (now[i] != timeGlyphs[i] && isDigitGlyph(now[i]) && isDigitGlyph(timeGlyphs[i])) digitChanged = true;
-    if (digitChanged) {  // nova sekunda: animacija od prethodnog vremena (trepćuća dvotačka se ne animira)
+        if (now[i] != timeGlyphs[i] && isDigitGlyph(now[i]) && isDigitGlyph(timeGlyphs[i]) && rollAllowed(now, i))
+          digitChanged = true;
+    if (digitChanged) {  // animacija od prethodnog vremena (trepćuća dvotačka se ne animira)
       strlcpySafe(tcFrom, timeGlyphs, sizeof(tcFrom));
       tcStep = 0;
       tcStepT = millis();

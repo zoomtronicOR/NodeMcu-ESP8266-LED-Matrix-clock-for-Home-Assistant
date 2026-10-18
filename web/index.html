@@ -134,13 +134,20 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label>NTP server 2<input type="text" data-k="time.ntp.1" maxlength="40"></label>
 <label>NTP server 3<input type="text" data-k="time.ntp.2" maxlength="40"></label>
 </div></div>
-<div class="card"><h2>Format</h2><div class="grid">
+<div class="card"><h2>Format vremena</h2><div class="grid">
 <label class="chk"><input type="checkbox" data-k="time.h24"> 24-časovni format</label>
 <label class="chk"><input type="checkbox" data-k="time.seconds" id="showSec"> Prikaži sekunde</label>
-<label>Animacija sekundi<select data-k="time.secAnim" id="secAnim"><option value="1">skrol nagore</option><option value="2">skrol nadole</option><option value="0">bez animacije</option></select></label>
 <label class="chk"><input type="checkbox" data-k="time.blink"> Trepćuća dvotačka</label>
 <label class="chk"><input type="checkbox" data-k="time.lead0"> Vodeća nula u satima</label>
 <label class="chk"><input type="checkbox" data-k="time.cyr"> Ćirilica (dani, meseci, poruke sistema)</label>
+</div></div>
+<div class="card"><h2>Animacija cifara</h2><div class="grid">
+<label>Kad se cifra promeni<select data-k="time.anim" id="anim"><option value="1">skrol nagore</option><option value="2">skrol nadole</option><option value="0">bez animacije</option></select></label>
+<label class="chk"><input type="checkbox" data-k="time.animH" id="animH"> Sati</label>
+<label class="chk"><input type="checkbox" data-k="time.animM" id="animM"> Minuti</label>
+<label class="chk"><input type="checkbox" data-k="time.animS" id="animS"> Sekunde (kad su prikazane)</label>
+</div><p class="note">Cifra koja se promeni otkotrlja se nagore ili nadole (≈ 0,25 s). Primenjuje se odmah; kliknite „Sačuvaj“ da ostane i posle restarta.</p></div>
+<div class="card"><h2>Datum</h2><div class="grid">
 <label>Format datuma<select data-k="time.dateFmt"><option value="0">17.10.2026.</option><option value="1">17.10.</option><option value="2">17. okt 2026.</option><option value="3">17. oktobar 2026.</option><option value="4">2026-10-17</option><option value="5">sub 17.10.</option></select></label>
 <label class="chk"><input type="checkbox" data-k="time.dateNarrow" id="dateNarrow"> Uski datum (samo brojčani formati)</label>
 <label>Tačke u datumu<select data-k="time.dot" id="dateDot"><option value="0">1 piksel</option><option value="1">2 piksela</option><option value="2">4 piksela (2×2)</option></select></label>
@@ -371,9 +378,9 @@ async function applyVremeShow(page,what){
   try{await api("/api/config",sectionPayload("vreme"));await api("/api/action",{cmd:"page",page});toast("Primenjeno (nije sačuvano) — "+what+" je na matrici.")}catch(e){toast(e.message,1)}
 }
 ["#dateDot","#dateNarrow"].forEach(id=>$(id).addEventListener("change",()=>applyVremeShow(1,"datum")));
-["#showSec","#secAnim"].forEach(id=>$(id).addEventListener("change",()=>applyVremeShow(0,"vreme")));
-function updSecUi(){$("#secAnim").disabled=!$("#showSec").checked}
-$("#showSec").addEventListener("change",updSecUi);
+["#showSec","#anim","#animH","#animM","#animS"].forEach(id=>$(id).addEventListener("change",()=>applyVremeShow(0,"vreme")));
+function updSecUi(){const off=$("#anim").value==="0";["#animH","#animM","#animS"].forEach(id=>$(id).disabled=off);$("#animS").disabled=off||!$("#showSec").checked}
+["#showSec","#anim"].forEach(id=>$(id).addEventListener("change",updSecUi));
 $("#pvText").addEventListener("input",preview);$("#pvFont").addEventListener("change",preview);$("#modules").addEventListener("change",preview);
 $("#prikaz").addEventListener("input",e=>{if(e.target.type==="range")updRanges()});
 
