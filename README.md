@@ -49,7 +49,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
   - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (NodeMCU) ili BOOT (ESP32-C3), 3 s.
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
 - **Web UI:** kartice Pregled, Prikaz, Poruke, Vreme, Mreža, Senzori, MQTT i Sistem. Ima pregled fonta, dijagnostiku, admin lozinku i izvoz/uvoz podešavanja. Svi unosi se proveravaju na uređaju.
-- **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat.
+- **Senzori (opciono, jedan aktivan):** AHT20/AHT21, BME280/BMP280 (I²C) ili DHT22. Imaju kalibracioni pomak i sopstvene neblokirajuće drajvere. Neispravan ili odsutan senzor ne utiče na sat. Opcija **Masne cifre** važi i za stranicu „Senzor“ (vidi [Spoljna temperatura](#spoljna-temperatura-openweathermap)).
 - **Spoljna temperatura (OpenWeatherMap):** stranica „Napolju“ sa izborom stavki: temperatura, oseća se, vlažnost, pritisak, brzina i pravac vetra i opis vremena. Detalji su u odeljku [Spoljna temperatura (OpenWeatherMap)](#spoljna-temperatura-openweathermap).
 - **MQTT / Home Assistant:** asinhroni klijent (ne blokira sat), Discovery, availability, telemetrija i komande.
 - **OTA ažuriranje:** iz web UI-ja ili preko `espota`, uz proveru signala, mesta i veličine fajla. Neuspelo ažuriranje ostavlja postojeći firmware.
@@ -169,7 +169,7 @@ Sat može da prikazuje vreme napolju sa [OpenWeatherMap](https://openweathermap.
 Decimalna tačka prati izbor „Tačke u datumu i temperaturi“ na kartici Vreme. Ako vrednosti nema ili je
 prestara (posle tri propuštena osvežavanja, a najmanje 1 h), stranica se preskače.
 
-Opcija **Masne cifre** prikazuje stranicu „Napolju“ fontom sa punijim ciframa i jedinicama (°C, %, hPa),
+Opcija **Masne cifre** (posebno za ovu stranicu i za stranicu „Senzor“) prikazuje vrednosti fontom sa punijim ciframa i jedinicama (°C, %, hPa),
 dok slova ostaju ista. Masne cifre su šire, pa opcija ima smisla od 6 modula naviše. Na 6 modula
 `1016 hPa` i `-4.5°C` staju bez skrolovanja.
 

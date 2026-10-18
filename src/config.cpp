@@ -334,6 +334,7 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   se["showT"] = c.sens.showTemp;
   se["showH"] = c.sens.showHum;
   se["showP"] = c.sens.showPress;
+  se["bold"] = c.sens.boldDigits;
 
   JsonObject ow = o["owm"].to<JsonObject>();
   ow["on"] = c.owm.enabled;
@@ -494,6 +495,7 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     getBool(se, "showT", c.sens.showTemp, ctx);
     getBool(se, "showH", c.sens.showHum, ctx);
     getBool(se, "showP", c.sens.showPress, ctx);
+    getBool(se, "bold", c.sens.boldDigits, ctx);
   }
 
   JsonObjectConst ow = o["owm"];

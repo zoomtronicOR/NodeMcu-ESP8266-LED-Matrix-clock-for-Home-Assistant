@@ -41,6 +41,7 @@ struct SensorConfig {
   int16_t tOffset;    // kalibracioni pomak, desetinke °C
   int16_t hOffset;    // kalibracioni pomak, desetinke %
   bool showTemp, showHum, showPress;  // šta se prikazuje na stranici "Senzor"
+  bool boldDigits;                    // stranica "Senzor" fontom sa masnim ciframa i jedinicama
 };
 
 struct WeatherConfig {  // OpenWeatherMap

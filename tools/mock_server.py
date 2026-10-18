@@ -60,7 +60,7 @@ CONFIG = {
             "showT": True, "showF": False, "showH": True, "showP": False, "showW": True, "showWD": True, "showD": True,
             "bold": False},
     "sens": {"type": 2, "dhtPin": 16, "interval": 30, "tOff": -0.5, "hOff": 0, "showT": True, "showH": True,
-             "showP": True},
+             "showP": True, "bold": False},
 }
 
 META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16,

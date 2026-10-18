@@ -363,7 +363,7 @@ static bool startNextSensorValue() {
     else if (i == 1 && cfg.sens.showHum && sensorHumidity(v)) snprintf_P(b, sizeof(b), PSTR("%.0f%%"), v);
     else if (i == 2 && cfg.sens.showPress && sensorPressure(v)) snprintf_P(b, sizeof(b), PSTR("%.0f hPa"), v);
     else continue;
-    startUtf8(IT_SENSOR, b, FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+    startUtf8(IT_SENSOR, b, cfg.sens.boldDigits ? FONT_ID_TEXT_BOLD : FONT_ID_TEXT, cfg.infoSeconds * 1000U);
     return true;
   }
   return false;
