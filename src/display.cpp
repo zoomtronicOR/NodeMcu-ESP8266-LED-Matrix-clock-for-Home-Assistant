@@ -107,23 +107,29 @@ static void startUtf8(Item it, const char* text, uint8_t font, uint16_t holdMs) 
 
 // ---------------------------------------------------------------- vreme i datum
 
-// izabrani font sata; ako najširi zapis vremena ne staje na ekran (npr. sa sekundama na 4 modula) — uski
-static uint8_t timeFontId() {
-  uint8_t cols[64];
+// Raspored vremena prema širini ekrana (računa se na početku stranice vremena):
+// sekunde samo ako staju makar uskim fontom (na 3 modula ne staju); izabrani font sata ako
+// staje, inače uski.
+static uint8_t tlFont = FONT_ID_TIME_NARROW;
+static bool tlSec = false;
+
+static uint16_t textWidth(uint8_t font, const char* glyphStr) {
+  uint8_t cols[MODULES_MAX * 8];
+  return renderColumns(font, glyphStr, cols, sizeof(cols));
+}
+
+static void computeTimeLayout() {
   char c = glyphColon(cfg.colonStyle, false);
-  char widest[9] = {'0', '0', c, '0', '0', 0, 0, 0, 0};
-  if (cfg.showSeconds) {
-    widest[5] = c;
-    widest[6] = widest[7] = '0';
-  }
-  if (renderColumns(cfg.timeFont, widest, cols, sizeof(cols)) <= displayCols) return cfg.timeFont;
-  return FONT_ID_TIME_NARROW;
+  char hm[6] = {'0', '0', c, '0', '0', 0};
+  char hms[9] = {'0', '0', c, '0', '0', c, '0', '0', 0};
+  tlSec = cfg.showSeconds && textWidth(FONT_ID_TIME_NARROW, hms) <= displayCols;
+  tlFont = textWidth(cfg.timeFont, tlSec ? hms : hm) <= displayCols ? cfg.timeFont : (uint8_t)FONT_ID_TIME_NARROW;
 }
 
 static void buildTime(char* out, size_t size) {
   if (!timeValid()) {
     char c = glyphColon(cfg.colonStyle, false);
-    snprintf_P(out, size, cfg.showSeconds ? PSTR("--%c--%c--") : PSTR("--%c--"), c, c);
+    snprintf_P(out, size, tlSec ? PSTR("--%c--%c--") : PSTR("--%c--"), c, c);
     return;
   }
   struct timeval tv;
@@ -133,14 +139,99 @@ static void buildTime(char* out, size_t size) {
   int h = cfg.h24 ? t.tm_hour : (t.tm_hour % 12 ? t.tm_hour % 12 : 12);
   char colon = glyphColon(cfg.colonStyle, cfg.blinkColon && tv.tv_usec >= 500000);
   int n = snprintf_P(out, size, cfg.leadingZero ? PSTR("%02d%c%02d") : PSTR("%d%c%02d"), h, colon, t.tm_min);
-  if (cfg.showSeconds && n > 0 && (size_t)n < size) snprintf_P(out + n, size - n, PSTR("%c%02d"), colon, t.tm_sec);
+  if (tlSec && n > 0 && (size_t)n < size) snprintf_P(out + n, size - n, PSTR("%c%02d"), colon, t.tm_sec);
+}
+
+// ---------------------------------------------------------------- vreme sa animacijom cifara
+// Uz sekunde i izabranu animaciju vreme crta ovaj modul direktno (Parola ne animira deo teksta):
+// cifra koja se promenila "otkotrlja" se nagore ili nadole u TIME_ANIM_STEPS koraka.
+
+constexpr uint8_t TIME_ANIM_STEPS = 8;      // visina matrice
+constexpr uint32_t TIME_ANIM_STEP_MS = 30;  // cela animacija ≈ 0,25 s
+
+static bool timeCustom = false;
+static char tcFrom[12];                     // vreme pre promene (polazne cifre animacije)
+static uint8_t tcStep = TIME_ANIM_STEPS;    // >= TIME_ANIM_STEPS: nema animacije u toku
+static uint32_t tcStepT = 0;
+
+static bool timeCustomWanted() { return tlSec && cfg.secAnim != SEC_ANIM_NONE; }
+
+static bool isDigitGlyph(char c) { return c >= '0' && c <= '9'; }
+
+static void drawTimeFrame() {
+  uint8_t font = tlFont;
+  uint8_t frame[MODULES_MAX * 8];
+  memset(frame, 0, sizeof(frame));
+  bool anim = tcStep < TIME_ANIM_STEPS && strlen(tcFrom) == strlen(timeGlyphs);
+  uint8_t k = anim ? tcStep : TIME_ANIM_STEPS;
+
+  // širina radi centriranja (razmak 1 kolona između znakova, kao Parola)
+  uint8_t tmp[MODULES_MAX * 8];
+  uint16_t total = renderColumns(font, timeGlyphs, tmp, sizeof(tmp));
+  int16_t x = total < displayCols ? (displayCols - total) / 2 : 0;
+
+  for (uint8_t i = 0; timeGlyphs[i]; i++) {
+    char cur[2] = {timeGlyphs[i], 0};
+    uint8_t now[8], old[8];
+    uint16_t w = renderColumns(font, cur, now, sizeof(now), 0);
+    bool roll = anim && tcFrom[i] != timeGlyphs[i] && isDigitGlyph(tcFrom[i]) && isDigitGlyph(timeGlyphs[i]);
+    if (roll) {
+      char prev[2] = {tcFrom[i], 0};
+      renderColumns(font, prev, old, sizeof(old), 0);  // cifre su iste širine
+    }
+    for (uint16_t c = 0; c < w && x + (int16_t)c < (int16_t)displayCols; c++) {
+      uint16_t v = now[c];
+      if (roll) {
+        // bit0 = gornji red: nagore = stara ide gore (>>), nova dolazi odozdo (<<)
+        v = cfg.secAnim == SEC_ANIM_UP ? (old[c] >> k) | (now[c] << (TIME_ANIM_STEPS - k))
+                                       : (old[c] << k) | (now[c] >> (TIME_ANIM_STEPS - k));
+      }
+      if (x + (int16_t)c >= 0) frame[x + c] = (uint8_t)v;
+    }
+    x += w + 1;
+  }
+
+  MD_MAX72XX* mx = P->getGraphicObject();
+  mx->control(MD_MAX72XX::UPDATE, MD_MAX72XX::OFF);
+  for (uint16_t c = 0; c < displayCols; c++) mx->setColumn(displayCols - 1 - c, frame[c]);  // kolona 0 = desno
+  mx->control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+}
+
+static void timeCustomLoop() {
+  char now[sizeof(timeGlyphs)];
+  buildTime(now, sizeof(now));
+  if (strcmp(now, timeGlyphs) != 0) {
+    bool digitChanged = false;
+    if (strlen(now) == strlen(timeGlyphs))
+      for (uint8_t i = 0; now[i]; i++)
+        if (now[i] != timeGlyphs[i] && isDigitGlyph(now[i]) && isDigitGlyph(timeGlyphs[i])) digitChanged = true;
+    if (digitChanged) {  // nova sekunda: animacija od prethodnog vremena (trepćuća dvotačka se ne animira)
+      strlcpySafe(tcFrom, timeGlyphs, sizeof(tcFrom));
+      tcStep = 0;
+      tcStepT = millis();
+    }
+    strlcpySafe(timeGlyphs, now, sizeof(timeGlyphs));
+    drawTimeFrame();
+  }
+  if (tcStep < TIME_ANIM_STEPS && elapsed(tcStepT, TIME_ANIM_STEP_MS)) {
+    tcStepT = millis();
+    tcStep++;
+    drawTimeFrame();
+  }
 }
 
 static void startTime() {
   item = IT_TIME;
   itemT0 = millis();
+  computeTimeLayout();
   buildTime(timeGlyphs, sizeof(timeGlyphs));
-  P->setFont(fontData(timeFontId()));
+  timeCustom = timeCustomWanted();
+  if (timeCustom) {
+    tcStep = TIME_ANIM_STEPS;
+    drawTimeFrame();
+    return;
+  }
+  P->setFont(fontData(tlFont));
   P->setCharSpacing(1);
   P->displayText(timeGlyphs, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
 }
@@ -237,10 +328,14 @@ static bool startPage(uint8_t page) {
     case PAGE_TIME:
       startTime();
       return true;
-    case PAGE_DATE:
+    case PAGE_DATE: {
       if (!buildDate(utf8, sizeof(utf8))) return false;
-      startUtf8(IT_DATE, utf8, FONT_ID_TEXT, cfg.infoSeconds * 1000U);
+      // uski font ima samo cifre, '.', '-' i dvotačke: samo za brojčane formate
+      bool numeric = cfg.dateFormat == 0 || cfg.dateFormat == 1 || cfg.dateFormat == 4;
+      startUtf8(IT_DATE, utf8, cfg.dateNarrow && numeric ? FONT_ID_TIME_NARROW : FONT_ID_TEXT,
+                cfg.infoSeconds * 1000U);
       return true;
+    }
     case PAGE_WEEKDAY:
       if (!buildWeekday(utf8, sizeof(utf8))) return false;
       startUtf8(IT_WEEKDAY, utf8, FONT_ID_TEXT, cfg.infoSeconds * 1000U);
@@ -489,6 +584,12 @@ void displayLoop() {
   if (item == IT_HOLD) return;
   if (item == IT_BOOT) {
     loopBoot();
+    return;
+  }
+
+  if (item == IT_TIME && timeCustom) {
+    timeCustomLoop();
+    if ((prioActive && mode != DM_DND) || elapsed(itemT0, cfg.timeSeconds * 1000UL)) nextItem();
     return;
   }
 

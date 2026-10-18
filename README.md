@@ -1,6 +1,6 @@
 # NodeMCU ESP8266 LED matrični sat za Home Assistant
 
-Matrični sat na ESP8266 (NodeMCU) sa MAX7219 LED matricom (4–16 modula 8×8, podrazumevano 8×32).
+Matrični sat na ESP8266 (NodeMCU) sa MAX7219 LED matricom (3–16 modula 8×8, podrazumevano 8×32).
 Prikazuje vreme, datum, dan u nedelji i poruke, ima lokalni web interfejs i opcionu MQTT integraciju
 sa Home Assistantom. Ceo interfejs i prikaz su na srpskom, latinicom ili ćirilicom.
 

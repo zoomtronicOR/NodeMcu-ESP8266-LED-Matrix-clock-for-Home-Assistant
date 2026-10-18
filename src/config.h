@@ -11,6 +11,7 @@ constexpr uint8_t PAGE_COUNT = 5;
 enum PageId : uint8_t { PAGE_TIME = 0, PAGE_DATE, PAGE_WEEKDAY, PAGE_MESSAGES, PAGE_SENSOR };
 enum ScrollDir : uint8_t { SCROLL_LEFT = 0, SCROLL_RIGHT, SCROLL_UP, SCROLL_DOWN };
 enum NightMode : uint8_t { NIGHT_DIM = 0, NIGHT_OFF };
+enum SecAnim : uint8_t { SEC_ANIM_NONE = 0, SEC_ANIM_UP, SEC_ANIM_DOWN };
 constexpr uint8_t DATE_FORMAT_COUNT = 6;
 constexpr uint8_t HW_TYPE_COUNT = 12;  // MD_MAX72XX::moduleType_t
 constexpr uint8_t COLON_STYLE_COUNT = 3;
@@ -57,10 +58,12 @@ struct Config {
   char ntp[3][41];
   bool h24;
   bool showSeconds;
+  uint8_t secAnim;  // SecAnim: animacija cifara kad se prikazuju sekunde
   bool blinkColon;
   bool leadingZero;
   uint8_t dateFormat;
   uint8_t dateDot;  // tačke u datumu: 0 = 1, 1 = 2, 2 = 4 piksela
+  bool dateNarrow;  // brojčani datum uskim ciframa (korisno na 3-4 modula)
   bool cyrillic;
 
   // prikaz

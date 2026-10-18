@@ -10,7 +10,7 @@ constexpr uint8_t PIN_MAX_CLK = 14;  // D5
 constexpr uint8_t PIN_MAX_DIN = 13;  // D7
 constexpr uint8_t PIN_MAX_CS = 12;   // D6
 // broj MAX7219 modula je u cfg.modules (MODULES_MIN..MODULES_MAX); 4 x 8x8 = 8x32
-constexpr uint8_t MODULES_MIN = 4;  // manje ne staje ni HH:MM
+constexpr uint8_t MODULES_MIN = 3;  // 24 kolone: HH:MM uskim fontom; sekunde se tada izostavljaju
 constexpr uint8_t MODULES_MAX = 16;
 
 // FLASH taster na NodeMCU ploči (GPIO0, aktivan na 0). Dug pritisak = Wi-Fi podešavanje.

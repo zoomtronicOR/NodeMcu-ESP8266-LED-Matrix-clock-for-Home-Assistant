@@ -107,7 +107,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label>Tip modula (orijentacija)<select data-k="disp.hw" id="hw"></select></label>
 <label>Font sata<select data-k="disp.timeFont" id="timeFont"></select></label>
 <label>Dvotačka sata<select data-k="disp.colon" id="colon"><option value="0">1+1 piksel</option><option value="1">2+2 piksela</option><option value="2">4+4 piksela (2×2)</option></select></label>
-</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font. Font i dvotačka sata se primenjuju odmah po izboru; kliknite „Sačuvaj“ da ostanu i posle restarta.</p></div>
+</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Na 3 modula vreme se prikazuje uskim fontom, bez sekundi; za datum uključite „Uski datum“ na kartici „Vreme“. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font. Font i dvotačka sata se primenjuju odmah po izboru; kliknite „Sačuvaj“ da ostanu i posle restarta.</p></div>
 
 <div class="card"><h2>Pregled fonta</h2><div class="grid">
 <label>Probni tekst<input type="text" id="pvText" maxlength="40" value="Čačak 12:34 Ђурђевдан"></label>
@@ -136,11 +136,13 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 </div></div>
 <div class="card"><h2>Format</h2><div class="grid">
 <label class="chk"><input type="checkbox" data-k="time.h24"> 24-časovni format</label>
-<label class="chk"><input type="checkbox" data-k="time.seconds"> Prikaži sekunde</label>
+<label class="chk"><input type="checkbox" data-k="time.seconds" id="showSec"> Prikaži sekunde</label>
+<label>Animacija sekundi<select data-k="time.secAnim" id="secAnim"><option value="1">skrol nagore</option><option value="2">skrol nadole</option><option value="0">bez animacije</option></select></label>
 <label class="chk"><input type="checkbox" data-k="time.blink"> Trepćuća dvotačka</label>
 <label class="chk"><input type="checkbox" data-k="time.lead0"> Vodeća nula u satima</label>
 <label class="chk"><input type="checkbox" data-k="time.cyr"> Ćirilica (dani, meseci, poruke sistema)</label>
 <label>Format datuma<select data-k="time.dateFmt"><option value="0">17.10.2026.</option><option value="1">17.10.</option><option value="2">17. okt 2026.</option><option value="3">17. oktobar 2026.</option><option value="4">2026-10-17</option><option value="5">sub 17.10.</option></select></label>
+<label class="chk"><input type="checkbox" data-k="time.dateNarrow" id="dateNarrow"> Uski datum (samo brojčani formati)</label>
 <label>Tačke u datumu<select data-k="time.dot" id="dateDot"><option value="0">1 piksel</option><option value="1">2 piksela</option><option value="2">4 piksela (2×2)</option></select></label>
 </div></div>
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="apply">Primeni</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
@@ -325,7 +327,7 @@ function fillSection(sec,c){
   if(s.dataset.sec==="msgs"){drawMsgs(c.msgs);return}
   fill(s,c);
   if(s.dataset.sec==="disp"){order=c.disp.order.slice();pagesOn=c.disp.pages.slice();drawPages();preview()}
-  if(s.dataset.sec==="time")fillTz(c);
+  if(s.dataset.sec==="time"){fillTz(c);updSecUi()}
   if(s.dataset.sec==="sens")updSensorUi();
 }
 $$("[data-act]").forEach(b=>b.addEventListener("click",async()=>{
@@ -364,10 +366,14 @@ function preview(){clearTimeout(pvT);pvT=setTimeout(async()=>{
 },300)}
 // font sata se vidi tek na matrici: primeni odmah po izboru (Sačuvaj ga čuva trajno)
 ["#timeFont","#colon"].forEach(id=>$(id).addEventListener("change",()=>$("#prikaz [data-act=apply]").click()));
-// tačke u datumu: primeni i odmah prikaži datum na matrici
-$("#dateDot").addEventListener("change",async()=>{
-  try{await api("/api/config",sectionPayload("vreme"));await api("/api/action",{cmd:"page",page:1});toast("Primenjeno (nije sačuvano) — datum je na matrici.")}catch(e){toast(e.message,1)}
-});
+// izgled na matrici se vidi tek kad se primeni: primeni karticu Vreme i odmah prikaži stranicu
+async function applyVremeShow(page,what){
+  try{await api("/api/config",sectionPayload("vreme"));await api("/api/action",{cmd:"page",page});toast("Primenjeno (nije sačuvano) — "+what+" je na matrici.")}catch(e){toast(e.message,1)}
+}
+["#dateDot","#dateNarrow"].forEach(id=>$(id).addEventListener("change",()=>applyVremeShow(1,"datum")));
+["#showSec","#secAnim"].forEach(id=>$(id).addEventListener("change",()=>applyVremeShow(0,"vreme")));
+function updSecUi(){$("#secAnim").disabled=!$("#showSec").checked}
+$("#showSec").addEventListener("change",updSecUi);
 $("#pvText").addEventListener("input",preview);$("#pvFont").addEventListener("change",preview);$("#modules").addEventListener("change",preview);
 $("#prikaz").addEventListener("input",e=>{if(e.target.type==="range")updRanges()});
 

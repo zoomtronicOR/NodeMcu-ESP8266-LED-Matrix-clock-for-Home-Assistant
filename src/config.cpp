@@ -29,10 +29,12 @@ void configDefaults(Config& c) {
   strlcpySafe(c.ntp[2], "time.cloudflare.com", sizeof(c.ntp[2]));
   c.h24 = true;
   c.showSeconds = false;
+  c.secAnim = SEC_ANIM_UP;
   c.blinkColon = true;
   c.leadingZero = true;
   c.dateFormat = 0;
   c.dateDot = 0;  // 1 piksel
+  c.dateNarrow = false;
   c.cyrillic = false;
 
   c.hwType = 1;  // FC16_HW — najčešći 4-u-1 moduli
@@ -186,10 +188,11 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   }
   if (!anyNtp) ctx.fail("ntp", F("potreban je bar jedan NTP server"));
   if (c.dateFormat >= DATE_FORMAT_COUNT) ctx.fail("dateFmt", F("nepoznat format"));
+  if (c.secAnim > SEC_ANIM_DOWN) ctx.fail("secAnim", F("nepoznata animacija"));
   if (c.dateDot >= DATE_DOT_COUNT) ctx.fail("dot", F("nepoznat izgled tačke"));
 
   if (c.hwType >= HW_TYPE_COUNT) ctx.fail("hw", F("nepoznat tip modula"));
-  if (c.modules < MODULES_MIN || c.modules > MODULES_MAX) ctx.fail("modules", F("opseg 4-16"));
+  if (c.modules < MODULES_MIN || c.modules > MODULES_MAX) ctx.fail("modules", F("opseg 3-16"));
   if (c.timeFont < TIME_FONT_FIRST || c.timeFont > TIME_FONT_LAST) ctx.fail("timeFont", F("nepoznat font"));
   if (c.colonStyle >= COLON_STYLE_COUNT) ctx.fail("colon", F("nepoznat izgled dvotačke"));
   if (c.brightDay > 15 || c.brightNight > 15 || c.brightMax > 15) ctx.fail("osvetljaj", F("opseg 0-15"));
@@ -253,10 +256,12 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   for (uint8_t i = 0; i < 3; i++) ntp.add(c.ntp[i]);
   t["h24"] = c.h24;
   t["seconds"] = c.showSeconds;
+  t["secAnim"] = c.secAnim;
   t["blink"] = c.blinkColon;
   t["lead0"] = c.leadingZero;
   t["dateFmt"] = c.dateFormat;
   t["dot"] = c.dateDot;
+  t["dateNarrow"] = c.dateNarrow;
   t["cyr"] = c.cyrillic;
 
   JsonObject d = o["disp"].to<JsonObject>();
@@ -359,10 +364,12 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
     }
     getBool(t, "h24", c.h24, ctx);
     getBool(t, "seconds", c.showSeconds, ctx);
+    getInt(t, "secAnim", 0, SEC_ANIM_DOWN, c.secAnim, ctx);
     getBool(t, "blink", c.blinkColon, ctx);
     getBool(t, "lead0", c.leadingZero, ctx);
     getInt(t, "dateFmt", 0, DATE_FORMAT_COUNT - 1, c.dateFormat, ctx);
     getInt(t, "dot", 0, DATE_DOT_COUNT - 1, c.dateDot, ctx);
+    getBool(t, "dateNarrow", c.dateNarrow, ctx);
     getBool(t, "cyr", c.cyrillic, ctx);
   }
 
