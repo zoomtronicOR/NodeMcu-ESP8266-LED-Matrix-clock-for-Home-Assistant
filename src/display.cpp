@@ -171,17 +171,20 @@ static bool rollAllowed(const char* s, uint8_t i) {
   return group == 0 ? cfg.animHour : group == 1 ? cfg.animMin : cfg.animSec;
 }
 
-static void drawTimeFrame() {
+// shift: za koliko kolona je tekst koji ulazi već pogurao vreme (+ levo, − desno); kolone koje
+// je zauzeo novi tekst se ne diraju
+static void drawTimeFrame(int16_t shift = 0) {
   uint8_t font = tlFont;
   uint8_t frame[MODULES_MAX * 8];
   memset(frame, 0, sizeof(frame));
   bool anim = tcStep < TIME_ANIM_STEPS && strlen(tcFrom) == strlen(timeGlyphs);
   uint8_t k = anim ? tcStep : TIME_ANIM_STEPS;
 
-  // širina radi centriranja (razmak 1 kolona između znakova, kao Parola)
+  // širina radi centriranja (razmak 1 kolona između znakova, kao Parola); neparan višak
+  // kolona ide levo, kao kod Parolinog PA_CENTER, da se vreme ne pomeri pri prelazu
   uint8_t tmp[MODULES_MAX * 8];
   uint16_t total = renderColumns(font, timeGlyphs, tmp, sizeof(tmp));
-  int16_t x = total < displayCols ? (displayCols - total) / 2 : 0;
+  int16_t x = total < displayCols ? displayCols - total - (displayCols - total) / 2 : 0;
 
   for (uint8_t i = 0; timeGlyphs[i]; i++) {
     char cur[2] = {timeGlyphs[i], 0};
@@ -207,11 +210,17 @@ static void drawTimeFrame() {
 
   MD_MAX72XX* mx = P->getGraphicObject();
   mx->control(MD_MAX72XX::UPDATE, MD_MAX72XX::OFF);
-  for (uint16_t c = 0; c < displayCols; c++) mx->setColumn(displayCols - 1 - c, frame[c]);  // kolona 0 = desno
+  for (int16_t c = 0; c < (int16_t)displayCols; c++) {
+    int16_t src = c + shift;
+    if (shift > 0 && c >= (int16_t)displayCols - shift) break;  // desno je već novi tekst
+    if (shift < 0 && c < -shift) continue;                       // levo je već novi tekst
+    mx->setColumn(displayCols - 1 - c, frame[src]);              // kolona 0 = desno
+  }
   mx->control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
 }
 
-static void timeCustomLoop() {
+// ponovo crta vreme kad se promeni (sekunda, trepćuća dvotačka) i vodi animaciju cifara
+static void timeCustomLoop(int16_t shift = 0) {
   char now[sizeof(timeGlyphs)];
   buildTime(now, sizeof(now));
   if (strcmp(now, timeGlyphs) != 0) {
@@ -220,19 +229,41 @@ static void timeCustomLoop() {
       for (uint8_t i = 0; now[i]; i++)
         if (now[i] != timeGlyphs[i] && isDigitGlyph(now[i]) && isDigitGlyph(timeGlyphs[i]) && rollAllowed(now, i))
           digitChanged = true;
-    if (digitChanged) {  // animacija od prethodnog vremena (trepćuća dvotačka se ne animira)
+    if (digitChanged && timeCustom) {  // animacija od prethodnog vremena (trepćuća dvotačka se ne animira)
       strlcpySafe(tcFrom, timeGlyphs, sizeof(tcFrom));
       tcStep = 0;
       tcStepT = millis();
     }
     strlcpySafe(timeGlyphs, now, sizeof(timeGlyphs));
-    drawTimeFrame();
+    drawTimeFrame(shift);
   }
   if (tcStep < TIME_ANIM_STEPS && elapsed(tcStepT, TIME_ANIM_STEP_MS)) {
     tcStepT = millis();
     tcStep++;
-    drawTimeFrame();
+    drawTimeFrame(shift);
   }
+}
+
+// ---------------------------------------------------------------- vreme koje izlazi
+// Tekst koji ulazi skrolovanjem levo/desno gura ono što je zatekao na ekranu, pa i vreme sa
+// prethodne stranice. Dok se vreme još vidi, crta se ponovo pomereno za isti broj kolona, pa
+// sekunde, dvotačka i animacija cifara teku i dok vreme odlazi. Broj kolona se dobija od
+// MD_MAX72XX: Parola za svaki korak skrolovanja zove transform(TSL/TSR), a on ovaj callback.
+static bool pushActive = false;
+static int16_t pushShift = 0;  // + levo, − desno
+
+static void onShiftOut(uint8_t, MD_MAX72XX::transformType_t t, uint8_t) {
+  if (t == MD_MAX72XX::TSL) pushShift++;
+  else if (t == MD_MAX72XX::TSR) pushShift--;
+}
+
+static void pushLoop() {
+  int16_t s = pushShift;
+  if (s >= (int16_t)displayCols || -s >= (int16_t)displayCols) {
+    pushActive = false;  // ceo ekran je novi tekst
+    return;
+  }
+  if (s != 0) timeCustomLoop(s);  // bez pomaka: novi tekst još nije počeo (ili se ne skroluje)
 }
 
 static void startTime() {
@@ -441,7 +472,19 @@ static bool startPage(uint8_t page) {
   return false;
 }
 
+static void nextItemInner();
+
 static void nextItem() {
+  bool fromTime = item == IT_TIME;
+  pushActive = false;
+  nextItemInner();
+  if (fromTime && item != IT_TIME) {
+    pushActive = true;
+    pushShift = 0;
+  }
+}
+
+static void nextItemInner() {
   uint32_t now = millis();
   bool dnd = mode == DM_DND;
   if (forcedPage >= 0) {
@@ -555,6 +598,7 @@ static void drawTest() {
 void displayTest() {
   LOG("Prikaz: test ekran");
   item = IT_TEST;
+  pushActive = false;
   testPhase = 0;
   testT0 = millis();
   updateBrightness(true);
@@ -635,6 +679,7 @@ void displayBegin() {
   displayCols = modulesActive * 8;
   P = new MD_Parola((MD_MAX72XX::moduleType_t)hwActive, PIN_MAX_DIN, PIN_MAX_CLK, PIN_MAX_CS, modulesActive);
   P->begin();
+  P->getGraphicObject()->setShiftDataOutCallback(onShiftOut);
   P->setIntensity(0);  // bezbedan početak
   P->displayClear();
   brightness = 0;
@@ -690,6 +735,7 @@ void displayLoop() {
   }
 
   bool done = P->displayAnimate();
+  if (pushActive) pushLoop();
   if (item == IT_TIME) {
     if (done) updateTime();
     // vreme traje cfg.timeSeconds; prioritetna poruka ga prekida odmah
@@ -702,6 +748,7 @@ void displayLoop() {
 void displayHold(const char* text) {
   if (!P) return;
   item = IT_HOLD;
+  pushActive = false;
   utf8ToGlyphs(text, glyphs, sizeof(glyphs));
   P->setFont(fontData(FONT_ID_TEXT));
   P->setCharSpacing(1);
