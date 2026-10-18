@@ -202,7 +202,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <label class="chk"><input type="checkbox" data-k="owm.showD"> Opis vremena (npr. „slaba kiša“)</label>
 </div><table id="owmSt" style="margin-top:12px"></table>
 <div class="btns" style="margin-top:12px"><button class="btn" id="owmNow">Osveži sada</button></div>
-<p class="note">Besplatan ključ: openweathermap.org → „API keys“ (novi ključ proradi u roku od oko 2 h). Na matrici redom: natpis pa izabrane stavke („Napolju 12.3°C“ zajedno kad staje); stranica „Napolju“ se uključuje i raspoređuje na kartici „Prikaz“. Zahtev ide preko HTTP-a (HTTPS traži više memorije nego što ESP8266 ima uz ostale funkcije), pa ključ nije šifrovan u prenosu — ne koristite ga ni za šta drugo.</p></div>
+<p class="note">Besplatan ključ: openweathermap.org → „API keys“ (novi ključ proradi u roku od oko 2 h). Sat šalje najviše 1 zahtev u minuti (i „Osveži sada“ čeka da prođe minut); na 15 min to je 96 zahteva dnevno po satu, daleko ispod besplatnog limita. Na matrici redom: natpis pa izabrane stavke („Napolju 12.3°C“ zajedno kad staje); stranica „Napolju“ se uključuje i raspoređuje na kartici „Prikaz“. Zahtev ide preko HTTP-a (HTTPS traži više memorije nego što ESP8266 ima uz ostale funkcije), pa ključ nije šifrovan u prenosu — ne koristite ga ni za šta drugo.</p></div>
 <div class="btns"><button class="btn pri" data-act="save">Sačuvaj</button><button class="btn" data-act="defaults">Vrati podrazumevano</button></div>
 </section>
 
@@ -540,7 +540,7 @@ async function status(){
   $("#owmSt").innerHTML=row("Stanje",esc(o.state),!o.on?"":o.t!==undefined?"ok":"warn")+
     row("Poslednje očitavanje",o.t!==undefined?`${esc(o.place)} · pre ${Math.round(o.age/60)} min`:"—")+
     (o.t!==undefined?row("Vrednosti",`${o.t} °C (oseća se ${o.feels} °C) · ${o.hum} % · ${o.press} hPa · vetar ${o.wind} m/s · ${esc(o.desc)}`):"")+
-    (o.err?row("Poslednja greška",esc(o.err),"err"):"")+row("Uspešna / neuspela očitavanja",`${o.ok} / ${o.errors}`);
+    (o.err?row("Poslednja greška",esc(o.err),"err"):"")+row("Zahteva od pokretanja",`${o.req} (uspešnih ${o.ok}, neuspelih ${o.errors}) · najviše 1 u minuti`);
   if(document.activeElement!==$("#dmode"))$("#dmode").value=d.mode;
   $("#bDirty").style.display=y.dirty?"block":"none";
   $("#bRestart").style.display=y.restart?"block":"none";

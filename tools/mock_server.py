@@ -82,7 +82,7 @@ def status():
                  "base": "matrix_clock_a1b2"},
         "sens": {"type": 2, "name": "BME280/BMP280", "model": "BME280", "state": "radi", "age": 12, "reads": 9312,
                  "errors": 0, "t": 22.4, "h": 46.3, "p": 1013.8},
-        "owm": {"on": True, "state": "radi", "err": "", "place": "Belgrade", "age": 420, "ok": 31, "errors": 0,
+        "owm": {"on": True, "state": "radi", "err": "", "place": "Belgrade", "age": 420, "ok": 31, "errors": 0, "req": 31,
                 "t": 14.6, "feels": 13.9, "hum": 72, "press": 1016,
                 "wind": 3.1, "desc": "slaba kiša"},
         "disp": {"item": "vreme", "mode": "normal", "bright": 6, "on": True, "hw": 1, "modules": 4},

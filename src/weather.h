@@ -23,4 +23,5 @@ const char* weatherError();         // poslednja greška ("" = nema)
 const char* weatherPlace();         // naziv mesta iz odgovora servera
 int32_t weatherAgeS();              // starost poslednje validne vrednosti, -1 = nema
 uint32_t weatherOkCount();
+uint32_t weatherRequestCount();  // poslatih zahteva od pokretanja (najviše 1 u minuti)
 uint32_t weatherErrorCount();

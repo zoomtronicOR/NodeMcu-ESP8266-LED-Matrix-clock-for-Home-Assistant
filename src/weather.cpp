@@ -13,6 +13,9 @@ static const char OWM_HOST[] = "api.openweathermap.org";
 constexpr size_t RESP_MAX = 2048;             // odgovor je obično ~500-800 B
 constexpr uint32_t REQ_TIMEOUT_MS = 15000;
 constexpr uint32_t RETRY_AFTER_ERROR_MS = 5UL * 60 * 1000;
+// Tvrdi limit: najviše jedan zahtev u minuti, bez obzira na razlog (raspored, "Osveži sada",
+// promena podešavanja, ponovni pokušaj). Raniji zahtev se odlaže, ne odbacuje.
+constexpr uint32_t MIN_REQUEST_GAP_MS = 60UL * 1000;
 
 enum WState : uint8_t { W_IDLE, W_BUSY };
 
@@ -25,6 +28,8 @@ static volatile bool evDone = false, evFailed = false, evOverflow = false;
 static char reqBuf[256];
 static uint32_t reqT0 = 0, lastAttempt = 0;
 static bool attempted = false, lastFailed = false, forceNow = false;
+static bool everSent = false;  // ne briše se pri promeni podešavanja (limit od 1/min važi uvek)
+static uint32_t reqCount = 0;
 
 static WeatherData data;
 static bool valid = false;
@@ -76,8 +81,10 @@ static void freeRequest() {
 
 static void startRequest() {
   attempted = true;
+  everSent = true;
   lastAttempt = millis();
   forceNow = false;
+  reqCount++;
   char city[3 * 48 + 1];
   urlEncode(cfg.owm.city, city, sizeof(city));
   // samo cifre = ID grada (id=), inače naziv (q=)
@@ -191,7 +198,8 @@ void weatherLoop() {
   if (!cfg.owm.enabled || !cfg.owm.key[0] || !cfg.owm.city[0] || !netConnected()) return;
   uint32_t interval = cfg.owm.intervalMin * 60000UL;
   uint32_t wait = lastFailed ? min(RETRY_AFTER_ERROR_MS, interval) : interval;
-  if (forceNow || !attempted || elapsed(lastAttempt, wait)) startRequest();
+  bool due = forceNow || !attempted || elapsed(lastAttempt, wait);
+  if (due && (!everSent || elapsed(lastAttempt, MIN_REQUEST_GAP_MS))) startRequest();
 }
 
 static bool fresh() {
@@ -217,6 +225,8 @@ const char* weatherStateText() {
   if (!cfg.owm.enabled) return "isključeno";
   if (!cfg.owm.key[0] || !cfg.owm.city[0]) return "nije podešeno (ključ i grad)";
   if (state == W_BUSY) return "čeka odgovor servera";
+  if ((forceNow || !attempted) && everSent && !elapsed(lastAttempt, MIN_REQUEST_GAP_MS))
+    return "zahtev čeka (najviše 1 u minuti)";
   float t;
   if (weatherTemperature(t)) return lastFailed ? "radi (poslednje osvežavanje nije uspelo)" : "radi";
   if (!netConnected()) return "čeka Wi-Fi";
@@ -227,4 +237,5 @@ const char* weatherError() { return err; }
 const char* weatherPlace() { return place; }
 int32_t weatherAgeS() { return valid ? (int32_t)((millis() - lastOkMs) / 1000) : -1; }
 uint32_t weatherOkCount() { return okCount; }
+uint32_t weatherRequestCount() { return reqCount; }
 uint32_t weatherErrorCount() { return errCount; }

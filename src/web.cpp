@@ -163,6 +163,7 @@ static void handleStatus() {
   ow["age"] = weatherAgeS();
   ow["ok"] = weatherOkCount();
   ow["errors"] = weatherErrorCount();
+  ow["req"] = weatherRequestCount();
   WeatherData wd;
   if (weatherData(wd)) {
     ow["t"] = serialized(String(wd.temp, 1));
