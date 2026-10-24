@@ -11,3 +11,6 @@ __pycache__/
 # lokalni dokumenti, ne objavljuju se
 CLAUDE.md
 Matrix_clock_V3_prosirena_specifikacija_finale.md
+
+# originalni snimci (sa zvukom); objavljuju se obrađeni, u docs/video/
+video/

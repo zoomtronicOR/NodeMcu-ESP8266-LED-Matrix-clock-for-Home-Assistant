@@ -8,6 +8,15 @@ sa Home Assistantom. Ceo interfejs i prikaz su na srpskom, latinicom ili ćirili
 Osnovno pravilo dizajna: **sat ne zavisi od Wi-Fi-ja, MQTT-a, web UI-ja ni senzora**. Glavna petlja je
 neblokirajuća, a kvar bilo kog podsistema ne zaustavlja prikaz vremena.
 
+## Izgled prikaza
+
+Kratki snimci rotacije stranica (oko 35 s, bez zvuka). Klik na sliku otvara video.
+
+| MAX7219, 4 modula (8×32) | WS2812B, panel 8×32, u boji |
+|---|---|
+| [<img src="docs/video/max7219.jpg" width="420">](docs/video/max7219.mp4) | [<img src="docs/video/ws2812b.jpg" width="300">](docs/video/ws2812b.mp4) |
+| vreme, datum, dan, senzor u sobi, stranica „Napolju“ (temperatura, oseća se, vlažnost, pritisak, vetar, opis vremena) | svaka stranica u svojoj boji: vreme, datum, dan, poruka |
+
 ## Izgled web interfejsa
 
 | Pregled (svetla tema) | Pregled (tamna tema) | Telefon |
