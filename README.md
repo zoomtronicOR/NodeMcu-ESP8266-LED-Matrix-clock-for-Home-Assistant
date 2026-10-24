@@ -38,8 +38,6 @@ Kratki snimci rotacije stranica (oko 35 s, bez zvuka). Klik na sliku otvara vide
 
 </details>
 
-Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva uređaj: `python tools/mock_server.py` otvara UI na http://127.0.0.1:8080, a `python tools/screenshots.py` ponovo pravi slike pomoću headless Edge/Chrome-a.
-
 ## Mogućnosti
 
 - **Vreme:** 12/24 h, opcione sekunde, trepćuća dvotačka, 5 fontova sata sa ciframa iste širine: standardni, masni, uski, visoki i visoki masni. Visoki fontovi koriste svih 8 redova matrice, a ostali 7, kao i tekst. NTP sa 3 servera, vremenska zona sa automatskim letnjim računanjem vremena. Bez mreže vreme nastavlja iz internog sata.
