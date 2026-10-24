@@ -47,7 +47,8 @@ CONFIG = {
     "time": {"tzName": "Europe/Belgrade", "tz": "CET-1CEST,M3.5.0,M10.5.0/3",
              "ntp": ["pool.ntp.org", "time.google.com", "time.cloudflare.com"],
              "h24": True, "seconds": False, "anim": 1, "animH": True, "animM": True, "animS": True, "blink": True, "lead0": True, "dateFmt": 0, "dot": 0, "dateNarrow": False, "cyr": False},
-    "disp": {"hw": 1, "modules": 4, "timeFont": 1, "colon": 1, "bDay": 6, "bNight": 1, "bMax": 10, "night": True,
+    "disp": {"matrix": 0, "hw": 1, "modules": 4, "wsLayout": 3, "wsMa": 1000,
+             "colors": [0xFF3010, 0x00B4FF, 0x30FF40, 0xFFB000, 0xFF40C0, 0x4080FF, 0xFFFFFF], "timeFont": 1, "colon": 1, "bDay": 6, "bNight": 1, "bMax": 10, "night": True,
              "nStart": 1320, "nEnd": 420, "nMode": 0, "speed": 40, "pause": 1000, "dir": 0, "tSec": 15,
              "iSec": 4, "order": [0, 1, 2, 4, 5, 3], "pages": [True, True, True, True, True, True]},
     "msgs": [{"on": True, "t": "Srećan rođendan, Ana!"},
@@ -63,7 +64,7 @@ CONFIG = {
              "showP": True, "bold": False},
 }
 
-META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16,
+META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16, "wsModMax": 8, "wsPin": "D4 (GPIO2)",
         "board": "ESP8266 NodeMCU", "button": "FLASH", "i2c": "SDA → D2, SCL → D1",
         "dhtPins": [{"v": 16, "n": "D0 (GPIO16)"}, {"v": 5, "n": "D1 (GPIO5)"}, {"v": 4, "n": "D2 (GPIO4)"}]}
 
@@ -88,7 +89,7 @@ def status():
         "owm": {"on": True, "state": "radi", "err": "", "place": "Belgrade", "age": 420, "ok": 31, "errors": 0, "req": 31,
                 "t": 14.6, "feels": 13.9, "hum": 72, "press": 1016,
                 "wind": 3.1, "deg": 310, "desc": "slaba kiša"},
-        "disp": {"item": "vreme", "mode": "normal", "bright": 6, "on": True, "hw": 1, "modules": 4},
+        "disp": {"item": "vreme", "mode": "normal", "bright": 6, "on": True, "hw": 1, "modules": 4, "matrix": 0},
         "sys": {"heap": 33480, "heapMin": 29120, "heapBoot": 39376, "maxBlock": 31200, "frag": 6, "uptime": up,
                 "loopMax": 48, "reset": "Power On", "cfgErr": "", "dirty": False, "restart": False,
                 "chip": "a1b2c3", "board": "ESP8266 NodeMCU", "flash": 4194304, "sketch": 512128, "sketchFree": 2633728,

@@ -36,3 +36,5 @@ bool displayIsOn();
 const char* displayItemName();  // šta se trenutno prikazuje
 uint8_t displayHwTypeActive();   // tip modula sa kojim je matrica pokrenuta
 uint8_t displayModulesActive();  // broj modula sa kojim je matrica pokrenuta
+uint8_t displayMatrixActive();   // MatrixType sa kojim je matrica pokrenuta
+uint16_t displayCurrentMa();     // WS2812B: procena struje (mA); MAX7219: 0

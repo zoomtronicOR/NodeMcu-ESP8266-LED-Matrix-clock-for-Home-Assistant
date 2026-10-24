@@ -11,6 +11,7 @@
 #include "weather.h"
 #include "text.h"
 #include "timesync.h"
+#include "ws2812.h"
 
 constexpr uint32_t STARTUP_DARK_MS = 1500;         // prvo nizak osvetljaj, zatim sačuvani
 constexpr uint32_t PORTAL_INFO_EVERY_MS = 20000;   // koliko često ponoviti uputstvo za portal
@@ -22,6 +23,7 @@ enum Item : uint8_t {
 };
 
 static MD_Parola* P = nullptr;
+static bool ws = false;  // WS2812B: kadar iz bafera MD_MAX72XX ide na LED-ove (wsSync)
 static uint8_t hwActive = 0;
 static uint8_t modulesActive = 4;
 static uint16_t displayCols = 32;  // modulesActive * 8
@@ -74,12 +76,15 @@ static void appendRaw(char* dst, size_t size, const char* s) {
   strlcpySafe(dst + n, s, size - n);
 }
 
+static bool scrollsIn = false;  // tekst ulazi skrolovanjem levo/desno (gura ono što je na ekranu)
+
 // Prikazuje sadržaj bafera glyphs. Kratak tekst je statičan (holdMs), dugačak se skroluje.
 static void showGlyphs(uint8_t font, uint16_t holdMs) {
   P->setFont(fontData(font));
   P->setCharSpacing(1);
   uint16_t w = P->getTextColumns(glyphs);
   uint8_t dir = cfg.scrollDir;
+  scrollsIn = w > displayCols;
   if (w <= displayCols) {
     textEffect_t in = PA_PRINT, out = PA_NO_EFFECT;
     if (dir == SCROLL_UP) in = out = PA_SCROLL_UP;
@@ -566,10 +571,12 @@ static void updateBrightness(bool force) {
   if (force || target != brightness) {
     brightness = target;
     P->setIntensity(brightness);
+    if (ws) wsSetLevel(brightness);
   }
   if (force || off == isOn) {
     isOn = !off;
     P->displayShutdown(off);
+    if (ws) wsSetOn(isOn);
     LOG("Prikaz: %s, osvetljaj %u", isOn ? "uključen" : "isključen", brightness);
   }
 }
@@ -673,12 +680,46 @@ static void loopTest() {
   }
 }
 
+// ---------------------------------------------------------------- WS2812B
+
+static uint32_t itemColor() {
+  switch (item) {
+    case IT_TIME: return cfg.colors[PAGE_TIME];
+    case IT_DATE: return cfg.colors[PAGE_DATE];
+    case IT_WEEKDAY: return cfg.colors[PAGE_WEEKDAY];
+    case IT_MESSAGE:
+    case IT_PRIORITY: return cfg.colors[PAGE_MESSAGES];
+    case IT_SENSOR: return cfg.colors[PAGE_SENSOR];
+    case IT_WEATHER: return cfg.colors[PAGE_WEATHER];
+    default: return cfg.colors[COLOR_SYSTEM];
+  }
+}
+
+// Kadar iz bafera MD_MAX72XX (kolona 0 = desno) ide na LED-ove, u boji stavke koja se prikazuje.
+// Vreme koje tekst gura sa ekrana zadržava svoju boju; prva faza test ekrana su tri trake
+// (crvena, zelena, plava) za proveru redosleda boja.
+static void wsSync() {
+  MD_MAX72XX* mx = P->getGraphicObject();
+  uint32_t cur = itemColor();
+  int16_t s = pushShift;
+  bool push = pushActive && (s != 0 || scrollsIn);
+  for (uint16_t x = 0; x < displayCols; x++) {
+    uint32_t c = cur;
+    if (item == IT_TEST && testPhase == 0) c = x * 3 < displayCols ? 0xFF0000 : x * 3 < displayCols * 2 ? 0x00FF00 : 0x0000FF;
+    else if (push && (s >= 0 ? x < displayCols - s : x >= -s)) c = cfg.colors[PAGE_TIME];
+    wsSetColumn(x, mx->getColumn(displayCols - 1 - x), c);
+  }
+  wsShow();
+}
+
 // ---------------------------------------------------------------- javni API
 
 void displayBegin() {
+  ws = cfg.matrix == MATRIX_WS2812;
   hwActive = cfg.hwType;
-  modulesActive = cfg.modules;
+  modulesActive = ws && cfg.modules > WS_MODULES_MAX ? WS_MODULES_MAX : cfg.modules;
   displayCols = modulesActive * 8;
+  // Parola crta i za WS2812B (u bafer MD_MAX72XX); pinovi MAX7219 tada nisu povezani
   P = new MD_Parola((MD_MAX72XX::moduleType_t)hwActive, PIN_MAX_DIN, PIN_MAX_CLK, PIN_MAX_CS, modulesActive);
   P->begin();
   P->getGraphicObject()->setShiftDataOutCallback(onShiftOut);
@@ -686,7 +727,13 @@ void displayBegin() {
   P->displayClear();
   brightness = 0;
   bootMs = millis();
-  LOG("Prikaz: MAX7219 x%u (%u kolona), tip modula %u", modulesActive, displayCols, hwActive);
+  if (ws) {
+    wsBegin(displayCols);
+    wsSetLevel(0);
+    LOG("Prikaz: WS2812B %ux8 (%u LED-ova), DATA %s", displayCols, displayCols * 8, WS_PIN_NAME);
+  } else {
+    LOG("Prikaz: MAX7219 x%u (%u kolona), tip modula %u", modulesActive, displayCols, hwActive);
+  }
   item = IT_BOOT;  // animacija dok sistem ne bude spreman (loopBoot)
   bootStepT = millis();
   drawBootPixel();
@@ -700,8 +747,15 @@ void displayApplyConfig() {
   if (item != IT_TEST) nextItem();
 }
 
+static void loopItems();
+
 void displayLoop() {
   if (!P) return;
+  loopItems();
+  if (ws) wsSync();
+}
+
+static void loopItems() {
   static uint32_t lastSlow = 0;
 
   if (!startupDone && elapsed(bootMs, STARTUP_DARK_MS)) {
@@ -759,6 +813,10 @@ void displayHold(const char* text) {
   // PA_PRINT se iscrta u prvom prolazu; drugi poziv za svaki slučaj
   P->displayAnimate();
   P->displayAnimate();
+  if (ws) {  // glavna petlja tokom ažuriranja stoji: kadar se šalje odmah
+    wsSetOn(true);
+    wsSync();
+  }
 }
 
 void displayResume() {
@@ -834,6 +892,8 @@ uint8_t displayBrightness() { return brightness; }
 bool displayIsOn() { return isOn; }
 uint8_t displayHwTypeActive() { return hwActive; }
 uint8_t displayModulesActive() { return modulesActive; }
+uint8_t displayMatrixActive() { return ws ? MATRIX_WS2812 : MATRIX_MAX7219; }
+uint16_t displayCurrentMa() { return ws ? wsCurrentMa() : 0; }
 
 const char* displayItemName() {
   switch (item) {

@@ -26,6 +26,7 @@ label>input,label>select{display:block;width:100%;margin-top:4px}
 input,select,button{font:inherit;color:inherit}
 input[type=text],input[type=password],input[type=number],input[type=time],select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 input[type=range]{width:100%}
+input[type=color]{height:36px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
 .chk{display:flex;align-items:center;gap:8px;color:var(--fg);font-size:14px}
 .chk input{width:auto;margin:0}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
@@ -103,11 +104,21 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 </div><p class="note">Kratak tekst se prikazuje statično; gore/dole važi samo za tekst koji staje na ekran.</p></div>
 
 <div class="card"><h2>Matrica i font sata</h2><div class="grid">
-<label>Broj modula 8×8 u lancu<select data-k="disp.modules" id="modules"></select></label>
-<label>Tip modula (orijentacija)<select data-k="disp.hw" id="hw"></select></label>
+<label>Vrsta matrice<select data-k="disp.matrix" id="matrix"><option value="0">MAX7219 (jednobojna, moduli 8×8)</option><option value="1">WS2812B (u boji)</option></select></label>
+<label><span id="modLbl">Broj modula 8×8 u lancu</span><select data-k="disp.modules" id="modules"></select></label>
+<label id="hwL">Tip modula (orijentacija)<select data-k="disp.hw" id="hw"></select></label>
 <label>Font sata<select data-k="disp.timeFont" id="timeFont"></select></label>
 <label>Dvotačka sata<select data-k="disp.colon" id="colon"><option value="0">1+1 piksel</option><option value="1">2+2 piksela</option><option value="2">4+4 piksela (2×2)</option></select></label>
-</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Na 3 modula vreme se prikazuje uskim fontom, bez sekundi; za datum uključite „Uski datum“ na kartici „Vreme“. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font. Font i dvotačka sata se primenjuju odmah po izboru; kliknite „Sačuvaj“ da ostanu i posle restarta.</p></div>
+</div><p class="note">Broj i tip modula primenjuju se posle restarta; ceo prikaz se prilagođava novoj širini. Na 3 modula vreme se prikazuje uskim fontom, bez sekundi; za datum uključite „Uski datum“ na kartici „Vreme“. Proverite „Test ekranom“ na kartici „Sistem“ — brojevi modula treba da idu s leva na desno i da budu uspravni. Više modula troši više struje — proverite napajanje (5 V). Ako vreme sa sekundama ne staje u širinu izabranim fontom, koristi se uski font. Font i dvotačka sata se primenjuju odmah po izboru; kliknite „Sačuvaj“ da ostanu i posle restarta.</p>
+<p class="note">Promena vrste matrice posle čuvanja automatski restartuje uređaj.</p></div>
+
+<div class="card" id="wsCard"><h2>WS2812B: boje i raspored LED-ova</h2><div class="grid" id="colors"></div>
+<div class="grid" style="margin-top:12px">
+<label>LED-ovi su povezani<select id="wsDir"><option value="1">po kolonama (8 u koloni)</option><option value="0">po redovima</option></select></label>
+<label>Prvi LED (ulaz DIN)<select id="wsStart"><option value="0">gore levo</option><option value="4">gore desno</option><option value="8">dole levo</option><option value="12">dole desno</option></select></label>
+<label class="chk"><input type="checkbox" id="wsSerp"> Zmijasto (svaka druga kolona/red u suprotnom smeru)</label>
+<label>Najveća struja (mA)<input type="number" min="200" max="10000" step="100" data-k="disp.wsMa"></label>
+</div><p class="note">Povezivanje: DIN → <span id="wsPin">D4</span>, 5 V i GND matrice na napajanje od 5 V, GND napajanja spojen sa GND ploče. Boje, raspored i struja se primenjuju odmah; kliknite „Sačuvaj“ da ostanu i posle restarta. Raspored proverite „Test ekranom“ na kartici „Sistem“: prvo idu tri trake (crvena, zelena, plava, s leva na desno), zatim brojevi polja 8×8, uspravni i s leva na desno. Ako su brojevi ispreturani, menjajte prvi LED i zmijasti raspored. Najveća struja je procena za sve LED-ove zajedno; kad bi kadar prešao granicu, svetlina se smanjuje. Panel 8×32 pri punoj beloj boji vuče i do 15 A, a USB port ploče daje oko 500 mA, pa za matricu koristite posebno napajanje i ograničenje podesite prema njemu.</p></div>
 
 <div class="card"><h2>Pregled fonta</h2><div class="grid">
 <label>Probni tekst<input type="text" id="pvText" maxlength="40" value="Čačak 12:34 Ђурђевдан"></label>
@@ -254,6 +265,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let cfg=null,meta=null,stTimer=0;
 const PAGES=["Vreme","Datum","Dan u nedelji","Poruke","Senzor","Napolju (OpenWeatherMap)"];
+const COLORS=["Vreme","Datum","Dan u nedelji","Poruke (i prioritetna)","Senzor","Napolju","Sistemske poruke"];
 const HW=["Generic","FC-16 (najčešći)","Parola","ICStation","DR0 CR0 RR0","DR0 CR0 RR1","DR0 CR1 RR0","DR0 CR1 RR1","DR1 CR0 RR0","DR1 CR0 RR1","DR1 CR1 RR0","DR1 CR1 RR1"];
 const TZ=[["Europe/Belgrade","CET-1CEST,M3.5.0,M10.5.0/3"],["Europe/London","GMT0BST,M3.5.0/1,M10.5.0"],["Europe/Athens","EET-2EEST,M3.5.0/3,M10.5.0/4"],["Europe/Istanbul","<+03>-3"],["Europe/Moscow","MSK-3"],["UTC","UTC0"],["America/New_York","EST5EDT,M3.2.0,M11.1.0"],["America/Chicago","CST6CDT,M3.2.0,M11.1.0"],["America/Los_Angeles","PST8PDT,M3.2.0,M11.1.0"],["Asia/Dubai","<+04>-4"],["Asia/Tokyo","JST-9"],["Australia/Sydney","AEST-10AEDT,M10.1.0,M4.1.0/3"]];
 const enc=new TextEncoder();
@@ -278,6 +290,7 @@ function fill(root,c){
     if(el.hasAttribute("data-secret")){el.value="";return}
     if(v===undefined)return;
     if(el.type==="checkbox")el.checked=!!v;
+    else if(el.type==="color")el.value="#"+v.toString(16).padStart(6,"0");
     else if(el.classList.contains("hm"))setHm(el,v);
     else el.value=v;
   });
@@ -288,6 +301,7 @@ function collect(root){
   root.querySelectorAll("[data-k]").forEach(el=>{
     let v;
     if(el.type==="checkbox")v=el.checked;
+    else if(el.type==="color")v=parseInt(el.value.slice(1),16);
     else if(el.classList.contains("hm")){const q=el.querySelectorAll("select");v=(+q[0].value)*60+(+q[1].value)}
     else if(el.type==="number"||el.type==="range"||el.tagName==="SELECT")v=Number(el.value);
     else v=el.value.trim();
@@ -345,7 +359,7 @@ function sectionPayload(sec){
   const s=$("#"+sec);
   if(s.dataset.sec==="msgs")return{msgs:collectMsgs()};
   const o=collect(s);
-  if(s.dataset.sec==="disp"){o.disp.order=order.slice();o.disp.pages=pagesOn.slice()}
+  if(s.dataset.sec==="disp"){o.disp.order=order.slice();o.disp.pages=pagesOn.slice();o.disp.wsLayout=+$("#wsDir").value|+$("#wsStart").value|($("#wsSerp").checked?2:0)}
   if(s.dataset.sec==="time"){const v=$("#tzSel").value;o.time.tzName=v==="x"?"custom":TZ[+v][0]}
   return o;
 }
@@ -353,7 +367,11 @@ function fillSection(sec,c){
   const s=$("#"+sec);
   if(s.dataset.sec==="msgs"){drawMsgs(c.msgs);return}
   fill(s,c);
-  if(s.dataset.sec==="disp"){order=c.disp.order.slice();pagesOn=c.disp.pages.slice();drawPages();preview()}
+  if(s.dataset.sec==="disp"){
+    order=c.disp.order.slice();pagesOn=c.disp.pages.slice();drawPages();
+    const l=c.disp.wsLayout;$("#wsDir").value=l&1;$("#wsStart").value=l&12;$("#wsSerp").checked=!!(l&2);
+    updMatrixUi(c.disp.modules);preview();
+  }
   if(s.dataset.sec==="time"){fillTz(c);updSecUi()}
   if(s.dataset.sec==="sens")updSensorUi();
 }
@@ -394,8 +412,19 @@ function preview(){clearTimeout(pvT);pvT=setTimeout(async()=>{
     x.strokeStyle="#888";x.strokeRect(.5,.5,W*s+1,8*s+1);
   }catch(e){}
 },300)}
-// font sata se vidi tek na matrici: primeni odmah po izboru (Sačuvaj ga čuva trajno)
-["#timeFont","#colon"].forEach(id=>$(id).addEventListener("change",()=>$("#prikaz [data-act=apply]").click()));
+// font sata, boje i raspored LED-ova se vide tek na matrici: primeni odmah po izboru (Sačuvaj ih čuva trajno)
+const applyDisp=()=>$("#prikaz [data-act=apply]").click();
+["#timeFont","#colon","#wsDir","#wsStart","#wsSerp","[data-k='disp.wsMa']"].forEach(id=>$(id).addEventListener("change",applyDisp));
+$("#colors").addEventListener("change",applyDisp);
+// WS2812B: najviše meta.wsModMax polja 8×8, bez tipa modula; kartica sa bojama samo za WS2812B
+function updMatrixUi(mod){
+  const w=$("#matrix").value==="1",max=w?meta.wsModMax:meta.modMax,sel=$("#modules"),cur=mod||+sel.value;
+  let mo="";for(let n=meta.modMin;n<=max;n++)mo+=`<option value="${n}">${n} (${n*8} kolona${w?", "+n*64+" LED-ova":""})</option>`;
+  sel.innerHTML=mo;sel.value=Math.min(cur,max);
+  $("#modLbl").textContent=w?"Širina u poljima 8×8 (panel 8×32 = 4)":"Broj modula 8×8 u lancu";
+  $("#hwL").style.display=w?"none":"";$("#wsCard").style.display=w?"":"none";
+}
+$("#matrix").addEventListener("change",()=>{updMatrixUi();preview()});
 // izgled na matrici se vidi tek kad se primeni: primeni karticu Vreme i odmah prikaži stranicu
 async function applyVremeShow(page,what){
   try{await api("/api/config",sectionPayload("vreme"));await api("/api/action",{cmd:"page",page});toast("Primenjeno (nije sačuvano) — "+what+" je na matrici.")}catch(e){toast(e.message,1)}
@@ -532,7 +561,7 @@ async function status(){
     (y.fsTotal?barRow("Fajl sistem (podešavanja)",y.fsUsed*100/y.fsTotal,`${kb(y.fsUsed)} od ${kb(y.fsTotal)}`,false,70,90):"")+
     row("Wi-Fi neuspeli pokušaji / prekidi",`${w.fails} / ${w.disc}`)+
     row("MQTT povezivanja / neuspeli pokušaji",`${s.mqtt.connects} / ${s.mqtt.fails}`+(s.mqtt.age>=0?` · poslednje pre ${Math.round(s.mqtt.age/60)} min`:""))+
-    row("Matrica",`${d.modules} modula (${d.modules*8} kolona), tip ${d.hw}`)+
+    row("Matrica",d.matrix===1?`WS2812B ${d.modules*8}×8 (${d.modules*64} LED-ova) · procena struje ${d.ma} mA`:`${d.modules} modula (${d.modules*8} kolona), tip ${d.hw}`)+
     row("NTP sinhronizacija",s.ntpCount+" puta")+
     row("Ploča",esc(y.board||"ESP8266 NodeMCU"))+row("MAC / čip",`${w.mac} / ${y.chip}`)+
     row("Flash čip",`${y.flash>>20} MB`);
@@ -581,7 +610,8 @@ async function loadCfg(netOnly){
     $("#hw").innerHTML=HW.map((h,i)=>`<option value="${i}">${h}</option>`).join("");
     $("#dhtPin").innerHTML=meta.dhtPins.map(p=>`<option value="${p.v}">${esc(p.n)}</option>`).join("");
     document.querySelectorAll(".btnName").forEach(e=>e.textContent=meta.button);
-    let mo="";for(let n=meta.modMin;n<=meta.modMax;n++)mo+=`<option value="${n}">${n} (${n*8} kolona)</option>`;$("#modules").innerHTML=mo;
+    $("#colors").innerHTML=COLORS.map((n,i)=>`<label>${n}<input type="color" data-k="disp.colors.${i}"></label>`).join("");
+    $("#wsPin").textContent=meta.wsPin;
     initHm();
     $("#timeFont").innerHTML=(meta.timeFonts||[1,2,3]).map(i=>`<option value="${i}">${meta.fonts[i]}</option>`).join("");
     $("#pvFont").innerHTML=meta.fonts.map((f,i)=>`<option value="${i}">${f}</option>`).join("");

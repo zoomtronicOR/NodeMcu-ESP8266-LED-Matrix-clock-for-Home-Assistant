@@ -198,6 +198,8 @@ static void handleStatus() {
   d["on"] = displayIsOn();
   d["hw"] = displayHwTypeActive();
   d["modules"] = displayModulesActive();
+  d["matrix"] = displayMatrixActive();
+  if (displayMatrixActive() == MATRIX_WS2812) d["ma"] = displayCurrentMa();
 
   JsonObject s = doc["sys"].to<JsonObject>();
   s["heap"] = ESP.getFreeHeap();
@@ -361,6 +363,8 @@ static void handleMeta() {
   doc["msgCount"] = MSG_COUNT;
   doc["modMin"] = MODULES_MIN;
   doc["modMax"] = MODULES_MAX;
+  doc["wsModMax"] = WS_MODULES_MAX;
+  doc["wsPin"] = WS_PIN_NAME;
   // ploča: nazivi pinova i tastera za UI
   doc["board"] = BOARD_NAME;
   doc["button"] = BUTTON_NAME;

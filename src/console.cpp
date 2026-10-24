@@ -34,6 +34,11 @@ static void printStatus() {
                   (unsigned long)diagLoopMaxMs());
   Serial.printf_P(PSTR("Prikaz: %s, osvetljaj %u, %s\n"), displayItemName(), displayBrightness(),
                   displayIsOn() ? "uključen" : "isključen");
+  if (displayMatrixActive() == MATRIX_WS2812)
+    Serial.printf_P(PSTR("Matrica: WS2812B %ux8, procena struje %u mA (najviše %u)\n"), displayModulesActive() * 8,
+                    displayCurrentMa(), cfg.wsMaxMa);
+  else
+    Serial.printf_P(PSTR("Matrica: MAX7219 x%u, tip modula %u\n"), displayModulesActive(), displayHwTypeActive());
   Serial.printf_P(PSTR("MQTT: %s%s%s, povezivanja %lu, neuspeha %lu\n"), mqttStateText(),
                   mqttLastError()[0] ? " — " : "", mqttLastError(), (unsigned long)mqttConnectCount(),
                   (unsigned long)mqttFailCount());
@@ -60,6 +65,7 @@ static void execute(char* cmd) {
                      "  portal                 pokreni pristupnu tačku za podešavanje\n"
                      "  msg <tekst>            prioritetna poruka 30 s\n"
                      "  test                   test ekran (sve LED + brojevi modula)\n"
+                     "  matrix max|ws          vrsta matrice: MAX7219 ili WS2812B (čuva + restart)\n"
                      "  restart                restart\n"
                      "  factory                fabrička podešavanja + restart"));
   } else if (!strcmp(cmd, "status")) {
@@ -91,6 +97,22 @@ static void execute(char* cmd) {
     displayPriority(arg, 30);
   } else if (!strcmp(cmd, "test")) {
     displayTest();
+  } else if (!strcmp(cmd, "matrix")) {
+    // radi i bez mreže: npr. kad je izabrana pogrešna vrsta pa matrica ništa ne prikazuje
+    bool wsType = !strcmp(arg, "ws");
+    if (!wsType && strcmp(arg, "max")) {
+      Serial.println(F("Upotreba: matrix max|ws"));
+      return;
+    }
+    std::unique_ptr<Config> next(new (std::nothrow) Config(cfg));
+    if (!next) return;
+    next->matrix = wsType ? MATRIX_WS2812 : MATRIX_MAX7219;
+    if (wsType && next->modules > WS_MODULES_MAX) next->modules = WS_MODULES_MAX;
+    if (next->matrix == displayMatrixActive()) {
+      Serial.println(F("Ta vrsta matrice je već aktivna"));
+      return;
+    }
+    Serial.println(systemApplyConfig(*next, true) ? F("Sačuvano, restart...") : F("Greška pri upisu u flash"));
   } else if (!strcmp(cmd, "restart")) {
     systemRestart(100);
   } else if (!strcmp(cmd, "factory")) {

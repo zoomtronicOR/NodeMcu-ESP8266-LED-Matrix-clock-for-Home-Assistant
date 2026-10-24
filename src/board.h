@@ -19,6 +19,12 @@ constexpr uint8_t PIN_MAX_CLK = 14;  // D5
 constexpr uint8_t PIN_MAX_DIN = 13;  // D7
 constexpr uint8_t PIN_MAX_CS = 12;   // D6
 
+// WS2812B matrica (umesto MAX7219): DATA na D4 = TX izlaz UART1, kojim NeoPixelBus šalje
+// bitove bez isključivanja prekida. Pin je fiksan (UART1 TX). GPIO2 mora biti visok pri
+// pokretanju; ulaz WS2812B ga ne povlači na nulu, pa pokretanje nije ugroženo.
+constexpr uint8_t PIN_WS_DATA = 2;  // D4
+#define WS_PIN_NAME "D4 (GPIO2)"
+
 // I²C magistrala za senzore (fiksno, odvojeno od matrice)
 constexpr uint8_t PIN_I2C_SDA = 4;  // D2
 constexpr uint8_t PIN_I2C_SCL = 5;  // D1
@@ -41,6 +47,10 @@ constexpr PinOption DHT_PINS[] = {{16, "D0 (GPIO16)"}, {5, "D1 (GPIO5)"}, {4, "D
 constexpr uint8_t PIN_MAX_CLK = 4;
 constexpr uint8_t PIN_MAX_DIN = 6;
 constexpr uint8_t PIN_MAX_CS = 7;
+
+// WS2812B matrica (umesto MAX7219): RMT kanal 0 na slobodnom pinu GPIO5
+constexpr uint8_t PIN_WS_DATA = 5;
+#define WS_PIN_NAME "GPIO5"
 
 // I²C na GPIO1/GPIO0. GPIO8 (plava LED) i GPIO9 (BOOT) su "strapping" pinovi i
 // ne koriste se, iako ih neke šeme označavaju kao SDA/SCL.

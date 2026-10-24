@@ -39,8 +39,13 @@ void configDefaults(Config& c) {
   c.dateNarrow = false;
   c.cyrillic = false;
 
+  c.matrix = MATRIX_MAX7219;
   c.hwType = 1;  // FC16_HW — najčešći 4-u-1 moduli
   c.modules = 4;
+  c.wsLayout = WS_COLUMNS | WS_SERPENTINE;  // najčešći 8×32 paneli: zmijasto po kolonama
+  c.wsMaxMa = 1000;
+  static const uint32_t COLORS[COLOR_COUNT] = {0xFF3010, 0x00B4FF, 0x30FF40, 0xFFB000, 0xFF40C0, 0x4080FF, 0xFFFFFF};
+  memcpy(c.colors, COLORS, sizeof(c.colors));
   c.timeFont = 1;
   c.colonStyle = 1;  // 2+2
   c.brightDay = 4;
@@ -201,6 +206,13 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
 
   if (c.hwType >= HW_TYPE_COUNT) ctx.fail("hw", F("nepoznat tip modula"));
   if (c.modules < MODULES_MIN || c.modules > MODULES_MAX) ctx.fail("modules", F("opseg 3-16"));
+  if (c.matrix > MATRIX_WS2812) ctx.fail("matrix", F("nepoznata vrsta matrice"));
+  if (c.matrix == MATRIX_WS2812 && c.modules > WS_MODULES_MAX)
+    ctx.fail("modules", F("WS2812B: najviše 64 kolone (8 polja 8×8)"));
+  if (c.wsLayout > 15) ctx.fail("wsLayout", F("nepoznat raspored"));
+  if (c.wsMaxMa < 200 || c.wsMaxMa > 10000) ctx.fail("wsMa", F("opseg 200-10000 mA"));
+  for (uint32_t col : c.colors)
+    if (col > 0xFFFFFF) ctx.fail("colors", F("neispravna boja"));
   if (c.timeFont < TIME_FONT_FIRST || c.timeFont > TIME_FONT_LAST) ctx.fail("timeFont", F("nepoznat font"));
   if (c.colonStyle >= COLON_STYLE_COUNT) ctx.fail("colon", F("nepoznat izgled dvotačke"));
   if (c.brightDay > 15 || c.brightNight > 15 || c.brightMax > 15) ctx.fail("osvetljaj", F("opseg 0-15"));
@@ -283,8 +295,13 @@ static void toJson(const Config& c, JsonObject o, bool secrets) {
   t["cyr"] = c.cyrillic;
 
   JsonObject d = o["disp"].to<JsonObject>();
+  d["matrix"] = c.matrix;
   d["hw"] = c.hwType;
   d["modules"] = c.modules;
+  d["wsLayout"] = c.wsLayout;
+  d["wsMa"] = c.wsMaxMa;
+  JsonArray colors = d["colors"].to<JsonArray>();
+  for (uint32_t col : c.colors) colors.add(col);
   d["timeFont"] = c.timeFont;
   d["colon"] = c.colonStyle;
   d["bDay"] = c.brightDay;
@@ -413,8 +430,20 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
 
   JsonObjectConst d = o["disp"];
   if (!d.isNull()) {
+    getInt(d, "matrix", 0, MATRIX_WS2812, c.matrix, ctx);
     getInt(d, "hw", 0, HW_TYPE_COUNT - 1, c.hwType, ctx);
     getInt(d, "modules", MODULES_MIN, MODULES_MAX, c.modules, ctx);
+    getInt(d, "wsLayout", 0, 15, c.wsLayout, ctx);
+    getInt(d, "wsMa", 200, 10000, c.wsMaxMa, ctx);
+    JsonArrayConst colors = d["colors"];
+    if (!colors.isNull()) {
+      if (colors.size() > COLOR_COUNT) ctx.fail("colors", F("previše boja"));
+      for (uint8_t i = 0; i < COLOR_COUNT && i < colors.size(); i++) {
+        long v = colors[i].is<long>() ? colors[i].as<long>() : -1;
+        if (v < 0 || v > 0xFFFFFF) ctx.fail("colors", F("neispravna boja"));
+        else c.colors[i] = (uint32_t)v;
+      }
+    }
     getInt(d, "timeFont", TIME_FONT_FIRST, TIME_FONT_LAST, c.timeFont, ctx);
     getInt(d, "colon", 0, COLON_STYLE_COUNT - 1, c.colonStyle, ctx);
     getInt(d, "bDay", 0, 15, c.brightDay, ctx);

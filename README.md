@@ -1,7 +1,7 @@
 # NodeMCU ESP8266 LED matrični sat za Home Assistant
 
 Matrični sat na ESP8266 (NodeMCU) ili ESP32-C3 (SuperMini) sa MAX7219 LED matricom (3–16 modula 8×8,
-podrazumevano 8×32).
+podrazumevano 8×32) ili sa WS2812B matricom u boji (8×24 do 8×64, npr. panel 8×32).
 Prikazuje vreme, datum, dan u nedelji i poruke, ima lokalni web interfejs i opcionu MQTT integraciju
 sa Home Assistantom. Ceo interfejs i prikaz su na srpskom, latinicom ili ćirilicom.
 
@@ -45,6 +45,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
   - Prioritetne poruke sa vremenom isteka.
   - Pri pokretanju jedan piksel obilazi obod matrice dok se vreme ne sinhronizuje.
 - **Osvetljaj:** dnevni i noćni nivo, gornja granica, noćni režim (smanji ili ugasi) po rasporedu i režim „ne uznemiravaj“.
+- **Matrica u boji (WS2812B):** posebna boja za svaku stranicu i za sistemske poruke, podesiv raspored LED-ova i ograničenje struje. Sve ostale mogućnosti su iste kao kod MAX7219. Detalji su u odeljku [WS2812B matrica](#ws2812b-matrica-u-boji).
 - **Wi-Fi:**
   - Pristupna tačka za podešavanje (captive portal) kad mreža nije podešena ili nije dostupna posle pokretanja, ili na taster FLASH (NodeMCU) ili BOOT (ESP32-C3), 3 s.
   - Ponovno povezivanje u rastućim intervalima; mDNS `ime.local`.
@@ -65,6 +66,7 @@ Podržane ploče:
 | **ESP32-C3 SuperMini** (4 MB, USB-C) | `esp32c3`, `ota_c3` | kompajlira se, još nije provereno na ploči |
 
 Pinovi su fiksni za svaku ploču (`src/board.h`). Pin za DHT22 se bira u web UI-ju.
+Povezuje se jedna matrica, MAX7219 ili WS2812B. Vrsta se bira u web UI-ju (Prikaz → „Vrsta matrice“).
 
 ### ESP8266 NodeMCU
 
@@ -73,6 +75,7 @@ Pinovi su fiksni za svaku ploču (`src/board.h`). Pin za DHT22 se bira u web UI-
 | MAX7219 CLK | D5 | 14 |
 | MAX7219 DIN | D7 | 13 |
 | MAX7219 CS | D6 | 12 |
+| WS2812B DIN (umesto MAX7219) | D4 | 2 |
 | I²C SDA (AHT2x, BME280) | D2 | 4 |
 | I²C SCL (AHT2x, BME280) | D1 | 5 |
 | DHT22 podaci (izbor u UI) | D0 / D1 / D2 | 16 / 5 / 4 |
@@ -85,6 +88,7 @@ Pinovi su fiksni za svaku ploču (`src/board.h`). Pin za DHT22 se bira u web UI-
 | MAX7219 CLK | GPIO4 |
 | MAX7219 DIN | GPIO6 |
 | MAX7219 CS | GPIO7 |
+| WS2812B DIN (umesto MAX7219) | GPIO5 |
 | I²C SDA (AHT2x, BME280) | GPIO1 |
 | I²C SCL (AHT2x, BME280) | GPIO0 |
 | DHT22 podaci (izbor u UI) | GPIO3 (podrazumevano) / GPIO10 / GPIO1 / GPIO0 |
@@ -97,7 +101,52 @@ Detaljno uputstvo za povezivanje, flešovanje i poznate probleme ove ploče: **[
 
 - Matricu napajati sa **5 V** iz dovoljno jakog izvora, ne iz 3,3 V pina ploče. ESP i matrica moraju imati zajedničku masu.
 - Za pouzdan rad preporučuje se pretvarač nivoa 3,3 V → 5 V za SPI linije (npr. 74HCT125).
-- Orijentacija modula se bira u web UI-ju („Tip modula“) i proverava se „Test ekranom“.
+- Orijentacija MAX7219 modula se bira u web UI-ju („Tip modula“) i proverava se „Test ekranom“.
+
+### WS2812B matrica (u boji)
+
+Umesto MAX7219 može se povezati WS2812B matrica sa 8 redova, npr. gotov panel 8×32 (256 LED-ova).
+Širina se zadaje u poljima 8×8 (panel 8×32 = 4), od 3 do 8 polja, tj. 24–64 kolone ili najviše
+512 LED-ova. Može i više panela u nizu, ako su povezani jedan za drugim.
+
+| Matrica | NodeMCU | ESP32-C3 SuperMini |
+|---|---|---|
+| DIN (ulaz, strelica na traci pokazuje smer) | D4 (GPIO2), preporučeno preko otpornika 330 Ω | GPIO5 |
+| GND | GND, i minus napajanja | G, i minus napajanja |
+| 5V | +5 V napajanja | +5 V napajanja |
+
+**Podešavanje** (kartica **Prikaz**):
+
+1. Izaberi **Vrsta matrice → WS2812B** i širinu, pa klikni **Sačuvaj**. Uređaj se sam restartuje.
+   Bez mreže isto radi komanda `matrix ws` na serijskoj konzoli, a `matrix max` vraća MAX7219.
+2. Pokreni **Sistem → Test ekran**. Prvo se vide tri trake, s leva na desno crvena, zelena i plava,
+   a zatim brojevi polja 8×8, uspravni i s leva na desno.
+3. Ako je slika izvrnuta ili ispreturana, u kartici **WS2812B: boje i raspored LED-ova** menjaj
+   „LED-ovi su povezani“ (po kolonama ili po redovima), „Prvi LED“ i „Zmijasto“. Promena se odmah
+   vidi na matrici. Najčešći paneli 8×32 su povezani po kolonama i zmijasto. Kad je slika ispravna, klikni **Sačuvaj**.
+4. Izaberi boje: posebno za vreme, datum, dan u nedelji, poruke (i prioritetnu poruku), senzor,
+   stranicu „Napolju“ i sistemske poruke (IP adresa, uputstvo za Wi-Fi, OTA, animacija pri pokretanju).
+   Boje se primenjuju odmah. Dok tekst koji ulazi gura vreme sa ekrana, vreme zadržava svoju boju.
+
+**Napajanje i struja:**
+
+- Jedan LED vuče do 60 mA pri punoj beloj boji, pa panel 8×32 može da traži i 15 A. Sat prikazuje mali
+  deo LED-ova, ali za stalni rad koristi poseban izvor od 5 V sa zajedničkom masom. USB port ploče daje
+  oko 500 mA.
+- **Najveća struja** (podrazumevano 1000 mA) je procena za ceo panel: oko 20 mA po boji (crvena,
+  zelena, plava) pri punoj svetlini i oko 1 mA po LED-u u mirovanju. Kad bi kadar prešao granicu,
+  svetlina se smanjuje. Podesi je prema svom napajanju. Trenutna procena se vidi na kartici **Pregled →
+  Dijagnostika** („Matrica“).
+- Kondenzator od oko 1000 µF između 5V i GND na ulazu matrice štiti prve LED-ove pri uključenju.
+
+**Signal:** ESP daje 3,3 V, a WS2812B na 5 V očekuje bar oko 3,5 V. Sa kratkim kablom to obično radi.
+Ako LED-ovi trepere ili pokazuju pogrešne boje, ubaci pretvarač nivoa 3,3 V → 5 V (npr. 74AHCT125).
+
+**Kako radi:** nivoi osvetljaja 0–15 su isti kao kod MAX7219 i raspoređeni približno geometrijski, pa je
+svaki korak jednako primetan. Kadar se šalje samo kad se nešto promeni. Na ESP8266 ide preko UART1 (pin D4),
+bez isključivanja prekida, pa Wi-Fi ne trpi. Panel od 256 LED-ova prima kadar za oko 7,7 ms. Na D4 je i
+plava LED ESP-12 modula, pa ona slabo treperi dok se šalju kadrovi. Na ESP32-C3 kadar šalje RMT
+periferija u pozadini.
 
 ## Build i flešovanje
 
@@ -199,6 +248,11 @@ pio run -t upload                # ponovo upisuje firmware; za ESP32-C3: pio run
 Posle toga sat se ponaša kao potpuno nov, kao posle fabričkih podešavanja. Ako ima više ili manje od 4 modula, broj i tip modula podesite
 posle fabričkih podešavanja, preko pristupne tačke (`http://192.168.4.1`, kartica Prikaz).
 
+Fabrička podešavanja vraćaju i vrstu matrice na MAX7219. Sat sa WS2812B matricom tada ne prikazuje ništa,
+pa ni uputstvo za Wi-Fi, iako pristupna tačka radi. Pre poklanjanja ponovo izaberite WS2812B: preko
+pristupne tačke (`http://192.168.4.1`, kartica Prikaz → „Vrsta matrice“) ili komandom `matrix ws` na
+serijskoj konzoli. Zatim proverite raspored LED-ova i boje.
+
 Novom vlasniku je dovoljno da kažete:
 
 > Uključi sat, poveži telefon na Wi-Fi mrežu `MatrixClock-XXXX` (lozinka `matrica123`), otvori
@@ -287,7 +341,10 @@ veš mašina, otvoren prozor, otvorena vrata, detekcija dima, curenje vode, pods
 
 ## Serijska konzola (oporavak bez mreže)
 
-Komande se kucaju na 115200 baud: `help`, `status`, `wifi <ssid>|<lozinka>`, `portal`, `msg <tekst>`, `test`, `restart`, `factory`.
+Komande se kucaju na 115200 baud: `help`, `status`, `wifi <ssid>|<lozinka>`, `portal`, `msg <tekst>`, `test`, `matrix max|ws`, `restart`, `factory`.
+
+`matrix max|ws` bira vrstu matrice, čuva je i restartuje uređaj. Korisno je kad je izabrana pogrešna
+vrsta, pa matrica ne prikazuje ništa (ni uputstvo za Wi-Fi).
 
 ## Napomena za Windows i CH340 (NodeMCU)
 

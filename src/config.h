@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-constexpr uint16_t CONFIG_SCHEMA = 3;  // povećati pri promeni strukture; starije se prevode pri učitavanju
+constexpr uint16_t CONFIG_SCHEMA = 4;  // povećati pri promeni strukture; starije se prevode pri učitavanju
 constexpr uint8_t MSG_COUNT = 6;
 constexpr uint8_t MSG_MAX_LEN = 150;   // bajtova UTF-8 po poruci
 constexpr uint8_t PAGE_COUNT = 6;
@@ -16,6 +16,14 @@ constexpr uint8_t DATE_FORMAT_COUNT = 6;
 constexpr uint8_t HW_TYPE_COUNT = 12;  // MD_MAX72XX::moduleType_t
 constexpr uint8_t COLON_STYLE_COUNT = 3;
 constexpr uint8_t DATE_DOT_COUNT = 3;
+
+enum MatrixType : uint8_t { MATRIX_MAX7219 = 0, MATRIX_WS2812 };
+// raspored LED-ova WS2812B matrice (bitovi cfg.wsLayout)
+enum WsLayout : uint8_t { WS_COLUMNS = 1, WS_SERPENTINE = 2, WS_START_RIGHT = 4, WS_START_BOTTOM = 8 };
+constexpr uint8_t WS_MODULES_MAX = 8;  // 64 × 8 = 512 LED-ova (RAM i vreme slanja kadra)
+// boje WS2812B: indeksi 0-5 = PageId, zatim sistemske poruke (obaveštenja, portal, OTA, test)
+constexpr uint8_t COLOR_SYSTEM = PAGE_COUNT;
+constexpr uint8_t COLOR_COUNT = PAGE_COUNT + 1;
 
 struct Message {
   bool enabled;
@@ -79,8 +87,12 @@ struct Config {
   bool cyrillic;
 
   // prikaz
+  uint8_t matrix;    // MatrixType (promena traži restart)
   uint8_t hwType;
-  uint8_t modules;   // broj MAX7219 modula u lancu (MODULES_MIN..MODULES_MAX)
+  uint8_t modules;   // broj MAX7219 modula u lancu (MODULES_MIN..MODULES_MAX); WS2812B: širina / 8
+  uint8_t wsLayout;  // WsLayout bitovi
+  uint16_t wsMaxMa;  // WS2812B: najveća dozvoljena struja (procena), mA
+  uint32_t colors[COLOR_COUNT];  // WS2812B: 0xRRGGBB po stranici + sistemske poruke
   uint8_t timeFont;  // indeks u FONT_TABLE (1..3)
   uint8_t colonStyle;  // dvotačka sata: 0 = 1+1, 1 = 2+2, 2 = 4+4 piksela
   uint8_t brightDay, brightNight, brightMax;  // 0..15

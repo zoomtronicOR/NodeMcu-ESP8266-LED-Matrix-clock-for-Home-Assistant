@@ -42,6 +42,7 @@ bool systemApplyConfig(const Config& next, bool save) {
                     strcmp(next.owm.city, cfg.owm.city);
   bool sensorChanged = next.sens.type != cfg.sens.type ||
                        (next.sens.type == SENSOR_DHT22 && next.sens.dhtPin != cfg.sens.dhtPin);
+  bool matrixChanged = next.matrix != displayMatrixActive();
   cfg = next;
   bool ok = true;
   if (save) {
@@ -60,6 +61,11 @@ bool systemApplyConfig(const Config& next, bool save) {
     LOG("Senzor promenjen u '%s' — restart", sensorTypeName(cfg.sens.type));
     systemRestart(1500);
   }
+  // druga vrsta matrice = drugi drajver i pinovi; bez restarta matrica ne bi ništa prikazivala
+  if (save && ok && matrixChanged) {
+    LOG("Vrsta matrice promenjena — restart");
+    systemRestart(1500);
+  }
   return ok;
 }
 
@@ -70,6 +76,9 @@ bool systemRestartPending() { return restartPending; }
 bool systemRestartNeeded() {
   if (cfg.sens.type != sensorActiveType() || (cfg.sens.type == SENSOR_DHT22 && cfg.sens.dhtPin != sensorActivePin()))
     return true;
-  return cfg.hwType != displayHwTypeActive() || cfg.modules != displayModulesActive() ||
+  // tip modula (orijentacija) važi samo za MAX7219
+  return cfg.matrix != displayMatrixActive() ||
+         (cfg.matrix == MATRIX_MAX7219 && cfg.hwType != displayHwTypeActive()) ||
+         cfg.modules != displayModulesActive() ||
          (bootHostname[0] && strcmp(bootHostname, cfg.hostname) != 0);
 }

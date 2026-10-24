@@ -22,6 +22,19 @@ Raspored pinova po ivicama se razlikuje između proizvođača, pa uvek gledaj **
 | CS | `GPIO7` | SS |
 | CLK | `GPIO4` | SCK |
 
+### WS2812B matrica (umesto MAX7219)
+
+| WS2812B | ESP32-C3 SuperMini | Napomena |
+|---|---|---|
+| DIN | `GPIO5` | kadar šalje RMT periferija u pozadini |
+| GND | `G` | zajednička masa sa napajanjem matrice |
+| 5V | poseban izvor 5 V | panel 8×32 može da vuče više ampera; vidi [README](../README.md#ws2812b-matrica-u-boji) |
+
+Vrsta matrice se bira u web UI-ju (Prikaz → „Vrsta matrice“) ili komandom `matrix ws` na serijskoj
+konzoli. NeoPixelBus koristi stari RMT drajver iz ESP-IDF-a, a ESP-IDF prekida rad pri pokretanju ako
+su u firmware linkovani i stari i novi drajver. Zato `[env:esp32c3]` ima `-DESP32_ARDUINO_NO_RGB_BUILTIN`,
+da `digitalWrite()` ne uvuče novi drajver zbog RGB LED-a. Tu zastavicu ne uklanjati.
+
 ### Senzor (opciono, jedan aktivan)
 
 | Senzor | Pin senzora | ESP32-C3 SuperMini |
@@ -120,6 +133,7 @@ pa ponovo flešuj. Domet je nešto manji, ali je veza obično stabilna.
 | Firmware | `.pio/build/nodemcuv2/firmware.bin` | `.pio/build/esp32c3/firmware.bin` |
 | USB | CH340 (drajver) | ugrađen u čip (bez drajvera) |
 | Taster za Wi-Fi podešavanje | FLASH (GPIO0) | BOOT (GPIO9) |
+| WS2812B DIN | D4 (GPIO2), UART1 | GPIO5, RMT |
 | Slobodna memorija (RAM) | ~35 KB | oko 200 KB (procena) |
 | Flash za firmware | 1 MB (OTA do ~500 KB) | 1,9 MB (OTA do 1,9 MB) |
 | Podešavanja | LittleFS 1 MB | LittleFS 128 KB |
