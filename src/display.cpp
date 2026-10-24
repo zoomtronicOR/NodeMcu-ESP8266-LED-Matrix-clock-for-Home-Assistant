@@ -78,6 +78,30 @@ static void appendRaw(char* dst, size_t size, const char* s) {
 
 static bool scrollsIn = false;  // tekst ulazi skrolovanjem levo/desno (gura ono što je na ekranu)
 
+// Tekst koji ulazi skrolovanjem gura ono što je zatekao na ekranu (npr. "1016 hPa" pa "vetar ...").
+// Između njih bi ostalo samo onoliko praznih kolona koliko ih je bilo uz ivicu, često 0-1, pa se
+// tekst dopunjava razmacima (sa strane sa koje ulazi) do najmanje SCROLL_GAP_COLS praznih kolona.
+constexpr uint8_t SCROLL_GAP_COLS = 6;
+
+static void padScrollIn(uint8_t font, bool right) {
+  MD_MAX72XX* mx = P->getGraphicObject();
+  uint16_t blank = 0;  // prazne kolone uz ivicu sa koje tekst ulazi (kolona 0 = desno)
+  while (blank < displayCols && mx->getColumn(right ? displayCols - 1 - blank : blank) == 0) blank++;
+  if (blank >= SCROLL_GAP_COLS) return;  // i prazan ekran
+  uint8_t sp[8];
+  uint16_t spW = renderColumns(font, " ", sp, sizeof(sp)) + 1;  // razmak + kolona između znakova
+  size_t n = (SCROLL_GAP_COLS - blank + spW - 1) / spW;
+  size_t len = strlen(glyphs);
+  if (len + n >= sizeof(glyphs)) return;
+  if (right) {  // udesno tekst ulazi od kraja
+    memset(glyphs + len, ' ', n);
+    glyphs[len + n] = '\0';
+  } else {
+    memmove(glyphs + n, glyphs, len + 1);
+    memset(glyphs, ' ', n);
+  }
+}
+
 // Prikazuje sadržaj bafera glyphs. Kratak tekst je statičan (holdMs), dugačak se skroluje.
 static void showGlyphs(uint8_t font, uint16_t holdMs) {
   P->setFont(fontData(font));
@@ -93,6 +117,7 @@ static void showGlyphs(uint8_t font, uint16_t holdMs) {
   } else {
     // gore/dole nema smisla za tekst duži od ekrana -> levo
     bool right = dir == SCROLL_RIGHT;
+    padScrollIn(font, right);
     textEffect_t e = right ? PA_SCROLL_RIGHT : PA_SCROLL_LEFT;
     P->displayText(glyphs, right ? PA_RIGHT : PA_LEFT, cfg.scrollSpeed, cfg.scrollPause, e, e);
   }

@@ -64,7 +64,7 @@ CONFIG = {
              "showP": True, "bold": False},
 }
 
-META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16, "wsModMax": 8, "wsPin": "D4 (GPIO2)",
+META = {"fonts": [f[0] for f in FONTS], "timeFonts": [1, 2, 5, 6, 3], "msgMax": 150, "msgCount": 6, "modMin": 3, "modMax": 16, "wsModMax": 8, "wsPin": "D4 (GPIO2)",
         "board": "ESP8266 NodeMCU", "button": "FLASH", "i2c": "SDA → D2, SCL → D1",
         "dhtPins": [{"v": 16, "n": "D0 (GPIO16)"}, {"v": 5, "n": "D1 (GPIO5)"}, {"v": 4, "n": "D2 (GPIO4)"}]}
 

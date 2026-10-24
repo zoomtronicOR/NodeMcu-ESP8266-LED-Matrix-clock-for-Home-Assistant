@@ -42,6 +42,9 @@ FONTS = [
     ("time_bold.txt", "FONT_TIME_BOLD", "Sat masni"),
     ("time_narrow.txt", "FONT_TIME_NARROW", "Sat uski"),
     ("text_bold.txt", "FONT_TEXT_BOLD", "Tekst sa masnim ciframa"),
+    # novi fontovi idu na kraj: indeks fonta sata se čuva u konfiguraciji (disp.timeFont)
+    ("time_tall.txt", "FONT_TIME_TALL", "Sat visoki"),
+    ("time_tall_bold.txt", "FONT_TIME_TALL_BOLD", "Sat visoki masni"),
 ]
 
 REPLACEMENT_KEY = "?box"

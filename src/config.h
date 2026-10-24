@@ -120,7 +120,9 @@ extern char configError[96];  // poslednja greška učitavanja (za dijagnostiku)
 void configDefaults(Config& c);
 bool configLoad();                 // false -> rade podrazumevane vrednosti, greška u configError
 bool configSave(const Config& c);  // atomski upis (tmp + rename)
-void configFactoryReset();         // briše fajl i vraća podrazumevano (Wi-Fi podaci se brišu)
+void configFactoryReset();         // briše fajl i vraća podrazumevano (Wi-Fi podaci se brišu); matrica ostaje
+// kopira podešavanja priključene matrice (vrsta, tip i broj modula, raspored LED-ova, granica struje)
+void configKeepMatrix(Config& dst, const Config& src);
 
 // JSON; lozinke se nikad ne izvoze, samo indikator da su postavljene
 void configToJson(const Config& c, JsonObject o);

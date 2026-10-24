@@ -241,6 +241,7 @@ static void handleDefaults() {
   std::unique_ptr<Config> def(new (std::nothrow) Config);
   if (!def) return sendError(500, "nema memorije");
   configDefaults(*def);
+  configKeepMatrix(*def, cfg);  // priključena matrica ostaje; menja se samo izgled prikaza
   JsonDocument doc;
   configToJson(*def, doc.to<JsonObject>());
   // Wi-Fi i lozinke se ne vraćaju na podrazumevano preko ovog dugmeta
@@ -358,7 +359,7 @@ static void handleMeta() {
   JsonArray fonts = doc["fonts"].to<JsonArray>();
   for (uint8_t i = 0; i < fontCount(); i++) fonts.add(fontName(i));
   JsonArray tf = doc["timeFonts"].to<JsonArray>();  // fontovi koji se nude za sat
-  for (uint8_t i : {FONT_ID_TIME_STD, FONT_ID_TIME_BOLD, FONT_ID_TIME_NARROW}) tf.add(i);
+  for (uint8_t i : {FONT_ID_TIME_STD, FONT_ID_TIME_BOLD, FONT_ID_TIME_TALL, FONT_ID_TIME_TALL_BOLD, FONT_ID_TIME_NARROW}) tf.add(i);
   doc["msgMax"] = MSG_MAX_LEN;
   doc["msgCount"] = MSG_COUNT;
   doc["modMin"] = MODULES_MIN;

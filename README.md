@@ -33,7 +33,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 
 ## Mogućnosti
 
-- **Vreme:** 12/24 h, opcione sekunde, trepćuća dvotačka, 3 fonta sata sa ciframa iste širine. NTP sa 3 servera, vremenska zona sa automatskim letnjim računanjem vremena. Bez mreže vreme nastavlja iz internog sata.
+- **Vreme:** 12/24 h, opcione sekunde, trepćuća dvotačka, 5 fontova sata sa ciframa iste širine: standardni, masni, uski, visoki i visoki masni. Visoki fontovi koriste svih 8 redova matrice, a ostali 7, kao i tekst. NTP sa 3 servera, vremenska zona sa automatskim letnjim računanjem vremena. Bez mreže vreme nastavlja iz internog sata.
   - Izgled dvotačke se bira: 1+1, 2+2 ili 4+4 piksela.
   - Animacija cifara: cifra koja se promeni otkotrlja se nagore ili nadole. Sati, minuti i sekunde se biraju posebno.
   - Na 3 modula vreme se prikazuje uskim fontom, bez sekundi.
@@ -41,7 +41,7 @@ Slike prikazuju izmišljene podatke. Prave se demo serverom koji ne zahteva ure�
 - **Srpski tekst:** `č ć ž š đ` i ćirilica (UTF-8). Nazivi dana i meseci se biraju latinicom ili ćirilicom. Nepodržani znakovi se prikazuju kao □.
 - **Prikaz:**
   - Rotacija stranica (vreme, datum, dan, poruke, senzor, napolju), sa podesivim redosledom i trajanjem.
-  - Skrolovanje levo/desno/gore/dole. Kratak tekst stoji mirno.
+  - Skrolovanje levo/desno/gore/dole. Kratak tekst stoji mirno. Tekst koji ulazi skrolovanjem gura sa ekrana ono što je zatekao (npr. vreme ili pritisak), uz razmak od najmanje 6 kolona.
   - Prioritetne poruke sa vremenom isteka.
   - Pri pokretanju jedan piksel obilazi obod matrice dok se vreme ne sinhronizuje.
 - **Osvetljaj:** dnevni i noćni nivo, gornja granica, noćni režim (smanji ili ugasi) po rasporedu i režim „ne uznemiravaj“.
@@ -175,6 +175,7 @@ upload fajl sistema.
   ```
   Ime uređaja (`upload_port` u `[env:ota]`) prilagoditi svom uređaju ili navesti IP adresu. Za ESP32-C3 isto važi za `[env:ota_c3]` (`pio run -e ota_c3 -t upload`).
 - Ažuriranje ne počinje bez Wi-Fi veze, ako je signal slabiji od −80 dBm, ili ako nema dovoljno mesta. Prekinut, skraćen ili neispravan fajl se odbacuje, a postojeći firmware ostaje.
+- Posle ažuriranja osveži web stranicu (F5). Stranica otvorena sa starim firmware-om ne zna za nove opcije (npr. nove fontove), pa to i sama upozori.
 - **Automatskog vraćanja na stari firmware nema.** Ako novi firmware ne radi, oporavak je preko USB-a (`pio run -t upload`, za ESP32-C3 `pio run -e esp32c3 -t upload`).
 
 ## Prvo pokretanje
@@ -248,10 +249,11 @@ pio run -t upload                # ponovo upisuje firmware; za ESP32-C3: pio run
 Posle toga sat se ponaša kao potpuno nov, kao posle fabričkih podešavanja. Ako ima više ili manje od 4 modula, broj i tip modula podesite
 posle fabričkih podešavanja, preko pristupne tačke (`http://192.168.4.1`, kartica Prikaz).
 
-Fabrička podešavanja vraćaju i vrstu matrice na MAX7219. Sat sa WS2812B matricom tada ne prikazuje ništa,
-pa ni uputstvo za Wi-Fi, iako pristupna tačka radi. Pre poklanjanja ponovo izaberite WS2812B: preko
-pristupne tačke (`http://192.168.4.1`, kartica Prikaz → „Vrsta matrice“) ili komandom `matrix ws` na
-serijskoj konzoli. Zatim proverite raspored LED-ova i boje.
+Fabrička podešavanja **zadržavaju podešavanja priključene matrice**: vrstu (MAX7219 ili WS2812B), broj
+i tip modula, raspored LED-ova i najveću struju. To nisu lični podaci, a sat bez njih ne bi prikazao ni
+uputstvo za Wi-Fi. Isto važi za dugme „Vrati podrazumevano“ na kartici Prikaz. Brisanje celog flasha
+(`pio run -t erase`) briše i njih. Vrsta matrice se tada bira preko pristupne tačke
+(`http://192.168.4.1`, kartica Prikaz → „Vrsta matrice“) ili komandom `matrix ws` na serijskoj konzoli.
 
 Novom vlasniku je dovoljno da kažete:
 

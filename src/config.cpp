@@ -6,6 +6,7 @@
 
 #include "app.h"
 #include "platform.h"
+#include "text.h"
 
 Config cfg;
 char configError[96] = "";
@@ -13,9 +14,11 @@ char configError[96] = "";
 static const char CONFIG_FILE[] = "/config.json";
 static const char CONFIG_TMP[] = "/config.tmp";
 
-// fontovi sata u FONT_TABLE (vidi tools/gen_fonts.py)
-constexpr uint8_t TIME_FONT_FIRST = 1;
-constexpr uint8_t TIME_FONT_LAST = 3;
+// fontovi sata u FONT_TABLE (vidi tools/gen_fonts.py i FontId u text.h)
+static bool timeFontValid(uint8_t f) {
+  return f == FONT_ID_TIME_STD || f == FONT_ID_TIME_BOLD || f == FONT_ID_TIME_NARROW || f == FONT_ID_TIME_TALL ||
+         f == FONT_ID_TIME_TALL_BOLD;
+}
 
 void configDefaults(Config& c) {
   memset(&c, 0, sizeof(c));
@@ -213,7 +216,7 @@ bool configValidate(const Config& c, char* err, size_t errLen) {
   if (c.wsMaxMa < 200 || c.wsMaxMa > 10000) ctx.fail("wsMa", F("opseg 200-10000 mA"));
   for (uint32_t col : c.colors)
     if (col > 0xFFFFFF) ctx.fail("colors", F("neispravna boja"));
-  if (c.timeFont < TIME_FONT_FIRST || c.timeFont > TIME_FONT_LAST) ctx.fail("timeFont", F("nepoznat font"));
+  if (!timeFontValid(c.timeFont)) ctx.fail("timeFont", F("nepoznat font"));
   if (c.colonStyle >= COLON_STYLE_COUNT) ctx.fail("colon", F("nepoznat izgled dvotačke"));
   if (c.brightDay > 15 || c.brightNight > 15 || c.brightMax > 15) ctx.fail("osvetljaj", F("opseg 0-15"));
   if (c.nightStart >= 1440 || c.nightEnd >= 1440) ctx.fail("noć", F("neispravno vreme"));
@@ -444,7 +447,8 @@ bool configFromJson(Config& c, JsonObjectConst o, char* err, size_t errLen) {
         else c.colors[i] = (uint32_t)v;
       }
     }
-    getInt(d, "timeFont", TIME_FONT_FIRST, TIME_FONT_LAST, c.timeFont, ctx);
+    getInt(d, "timeFont", 0, 255, c.timeFont, ctx);
+    if (!timeFontValid(c.timeFont)) ctx.fail("timeFont", F("nepoznat font"));
     getInt(d, "colon", 0, COLON_STYLE_COUNT - 1, c.colonStyle, ctx);
     getInt(d, "bDay", 0, 15, c.brightDay, ctx);
     getInt(d, "bNight", 0, 15, c.brightNight, ctx);
@@ -628,10 +632,29 @@ bool configSave(const Config& c) {
   return true;
 }
 
+void configKeepMatrix(Config& dst, const Config& src) {
+  dst.matrix = src.matrix;
+  dst.hwType = src.hwType;
+  dst.modules = src.modules;
+  dst.wsLayout = src.wsLayout;
+  dst.wsMaxMa = src.wsMaxMa;
+}
+
 void configFactoryReset() {
+  Config* hw = new (std::nothrow) Config(cfg);
   LittleFS.remove(CONFIG_FILE);
   LittleFS.remove(CONFIG_TMP);
   configDefaults(cfg);
   configError[0] = '\0';
-  LOG("Fabrička podešavanja vraćena");
+  if (hw) {
+    // podešavanja priključene matrice ostaju (nisu lični podaci): inače sat sa drugačijom matricom
+    // posle restarta ne bi prikazao ništa, pa ni uputstvo za Wi-Fi podešavanje
+    configKeepMatrix(cfg, *hw);
+    configDefaults(*hw);  // fajl se upisuje samo ako se matrica razlikuje od podrazumevane
+    if (cfg.matrix != hw->matrix || cfg.hwType != hw->hwType || cfg.modules != hw->modules ||
+        cfg.wsLayout != hw->wsLayout || cfg.wsMaxMa != hw->wsMaxMa)
+      configSave(cfg);
+    delete hw;
+  }
+  LOG("Fabrička podešavanja vraćena (podešavanja matrice zadržana)");
 }

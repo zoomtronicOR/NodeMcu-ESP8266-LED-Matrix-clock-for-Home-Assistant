@@ -66,6 +66,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <div class="banner" id="bDirty">Postoje primenjena podešavanja koja nisu sačuvana — posle restarta se gube.</div>
 <div class="banner" id="bRestart">Neke promene (tip modula, ime uređaja) deluju tek posle restarta.</div>
 <div class="banner" id="bCfgErr"></div>
+<div class="banner" id="bReload">Sat je dobio nov firmware. Osvežite stranicu (F5) pre menjanja podešavanja.</div>
 <div class="banner" id="bAdmin">Web interfejs nije zaštićen lozinkom. Postavite je na kartici „Sistem“.</div>
 
 <section id="pregled" class="on">
@@ -263,7 +264,7 @@ canvas{width:100%;background:#111;border-radius:8px;image-rendering:pixelated;ma
 <script>
 "use strict";
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-let cfg=null,meta=null,stTimer=0;
+let cfg=null,meta=null,stTimer=0,pageBuild="";
 const PAGES=["Vreme","Datum","Dan u nedelji","Poruke","Senzor","Napolju (OpenWeatherMap)"];
 const COLORS=["Vreme","Datum","Dan u nedelji","Poruke (i prioritetna)","Senzor","Napolju","Sistemske poruke"];
 const HW=["Generic","FC-16 (najčešći)","Parola","ICStation","DR0 CR0 RR0","DR0 CR0 RR1","DR0 CR1 RR0","DR0 CR1 RR1","DR1 CR0 RR0","DR1 CR0 RR1","DR1 CR1 RR0","DR1 CR1 RR1"];
@@ -303,6 +304,8 @@ function collect(root){
     if(el.type==="checkbox")v=el.checked;
     else if(el.type==="color")v=parseInt(el.value.slice(1),16);
     else if(el.classList.contains("hm")){const q=el.querySelectorAll("select");v=(+q[0].value)*60+(+q[1].value)}
+    // izbor bez vrednosti (npr. font koji ova stranica ne poznaje) se ne šalje, umesto da postane 0
+    else if(el.tagName==="SELECT"&&el.value==="")return;
     else if(el.type==="number"||el.type==="range"||el.tagName==="SELECT")v=Number(el.value);
     else v=el.value.trim();
     if(el.hasAttribute("data-secret")&&!v)return;
@@ -536,6 +539,9 @@ const kb=b=>Math.round(b/1024)+" KB";
 function row(k,v,cls){return`<tr><td>${k}</td><td${cls?` class="${cls}"`:""}>${v}</td></tr>`}
 async function status(){
   let s;try{s=await api("/api/status")}catch(e){$("#clock").textContent="offline";return}
+  // stranica je učitana sa starim firmware-om: njeni spiskovi (npr. fontovi) možda ne odgovaraju novom
+  if(!pageBuild)pageBuild=s.build;
+  $("#bReload").style.display=s.build!==pageBuild?"block":"none";
   lastSys=s;fwInfo(s);
   $("#clock").textContent=s.time||"--:--";
   const w=s.wifi,y=s.sys,d=s.disp;
