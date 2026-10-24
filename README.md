@@ -215,19 +215,19 @@ neuspelih pokušaja“** (1–50).
 
 Bez Wi-Fi-ja sat ne zna tačno vreme (nema bateriju ni RTC), pa prikazuje `--:--` dok se ne poveže.
 
-## Pre nego što sat poklonite ili prodate
+## Ako nekome poklanjate sat
 
-Sat će raditi i kod novog vlasnika: ne nađe vašu mrežu, posle oko 3 minuta pokrene pristupnu tačku
-i novi vlasnik unese svoj Wi-Fi. Ipak, **pre toga vratite sat na fabrička podešavanja**, jer u njemu
+Sat će raditi i kod onoga ko ga dobije: ne nađe vašu mrežu, posle oko 3 minuta pokrene pristupnu tačku
+i tu se unese novi Wi-Fi. Ipak, **pre poklanjanja vratite sat na fabrička podešavanja**, jer u njemu
 ostaju vaši podaci:
 
 - **Lozinka vašeg Wi-Fi-ja.** Web UI je nikad ne prikazuje. Ipak, ko pročita flash preko USB-a (esptool),
   može da je izvuče, jer je u konfiguraciji kao običan tekst.
-- **MQTT nalog** (korisnik, lozinka, adresa brokera). Sat bi kod novog vlasnika uzalud pokušavao da se
+- **MQTT nalog** (korisnik, lozinka, adresa brokera). Sat bi na drugoj mreži uzalud pokušavao da se
   poveže na vaš broker.
 - **OpenWeatherMap API ključ.** Sat bi nastavio da ga troši sa tuđe mreže.
-- **Admin lozinka.** Novi vlasnik ne bi mogao da otvori web UI.
-- **Promenjena lozinka pristupne tačke.** Novi vlasnik ne bi mogao da se poveže na pristupnu tačku.
+- **Admin lozinka.** Onaj ko dobije sat ne bi mogao da otvori web UI.
+- **Promenjena lozinka pristupne tačke.** Onaj ko dobije sat ne bi mogao da se poveže na pristupnu tačku.
 
 Dok je sat još kod vas i povezan na vašu mrežu:
 
@@ -246,16 +246,15 @@ pio run -t erase                 # briše ceo flash (NodeMCU); za ESP32-C3: pio 
 pio run -t upload                # ponovo upisuje firmware; za ESP32-C3: pio run -e esp32c3 -t upload
 ```
 
-Posle toga sat se ponaša kao potpuno nov, kao posle fabričkih podešavanja. Ako ima više ili manje od 4 modula, broj i tip modula podesite
-posle fabričkih podešavanja, preko pristupne tačke (`http://192.168.4.1`, kartica Prikaz).
-
 Fabrička podešavanja **zadržavaju podešavanja priključene matrice**: vrstu (MAX7219 ili WS2812B), broj
 i tip modula, raspored LED-ova i najveću struju. To nisu lični podaci, a sat bez njih ne bi prikazao ni
-uputstvo za Wi-Fi. Isto važi za dugme „Vrati podrazumevano“ na kartici Prikaz. Brisanje celog flasha
-(`pio run -t erase`) briše i njih. Vrsta matrice se tada bira preko pristupne tačke
-(`http://192.168.4.1`, kartica Prikaz → „Vrsta matrice“) ili komandom `matrix ws` na serijskoj konzoli.
+uputstvo za Wi-Fi. Isto važi za dugme „Vrati podrazumevano“ na kartici Prikaz.
 
-Novom vlasniku je dovoljno da kažete:
+Posle brisanja celog flasha sat se ponaša kao potpuno nov, pa se vraćaju i podrazumevana podešavanja matrice
+(MAX7219, 4 modula). Ako je matrica drugačija, podesite je preko pristupne tačke (`http://192.168.4.1`,
+kartica Prikaz: „Vrsta matrice“, broj i tip modula) ili komandom `matrix ws` na serijskoj konzoli.
+
+Onome kome poklanjate sat dovoljno je da kažete:
 
 > Uključi sat, poveži telefon na Wi-Fi mrežu `MatrixClock-XXXX` (lozinka `matrica123`), otvori
 > `http://192.168.4.1` i na kartici **Mreža** izaberi svoju mrežu.
